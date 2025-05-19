@@ -1,12 +1,14 @@
 [Unit]
 Description=Argon One Fan and Button Daemon Service
-After=multi-user.target
+After=sysinit.target
+Wants=multi-user.target
 
 [Service]
 Type=forking
 ExecStart=/usr/sbin/argononed
 PIDFile=/run/argononed.pid
 Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
