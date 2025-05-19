@@ -36,13 +36,13 @@ SOFTWARE.
 
 /**
  * \brief Initialize the configuration
- * 
+ *
  * \param struct DTBO_Data* configuration
  * \return int
  */
 int Init_Configuration(struct DTBO_Data* conf)
 {
-  struct DTBO_Config defaults = { 
+  struct DTBO_Config defaults = {
       .fanstages = { 10, 55, 100 },
       .thresholds = { 55, 60, 65 },
       .hysteresis = 3
@@ -64,9 +64,9 @@ int Init_Configuration(struct DTBO_Data* conf)
 }
 /**
  * \brief Check the configuration
- * 
+ *
  *  Confirm the source configuration values are set correctly and apply them to configuration
- * 
+ *
  * \param struct DTBO_Data* configuration
  * \param struct DTBO_Data* src
  * \param int Full_check
@@ -79,7 +79,7 @@ int Check_Configuration(struct DTBO_Data* conf, struct DTBO_Config src, int Full
     {
         if (i > 0)
         {
-            if (src.fanstages[i] > src.fanstages[i - 1])
+            if (src.fanstages[i] >= src.fanstages[i - 1])
                 src.fanstages[i] = conf->configuration.fanstages[i] = src.fanstages[i] <= 100 ? src.fanstages[i] : conf->configuration.fanstages[i];
             if (src.thresholds[i] > src.thresholds[i - 1])
                 src.thresholds[i] = conf->configuration.thresholds[i] = src.thresholds[i] <= 80 ? src.thresholds[i] : conf->configuration.thresholds[i];
@@ -125,18 +125,18 @@ int Check_Configuration(struct DTBO_Data* conf, struct DTBO_Config src, int Full
 
 /**
  * @brief Send Configuration output to log
- * 
+ *
  * \param struct DTBO_Data* configuration
  */
 void Configuration_log(struct DTBO_Data* conf)
-{  
+{
     log_message(LOG_INFO + LOG_BOLD,"Configuration Data");
     log_message(LOG_INFO,"Device-Tree Overlay version %d.%d.%d",conf->version[0], conf->version[1], conf->version[2]);
     log_message(LOG_INFO,"Hysteresis set to %d",conf->configuration.hysteresis);
     log_message(LOG_INFO,"Fan Speeds set to %d%% %d%% %d%%",conf->configuration.fanstages[0],conf->configuration.fanstages[1],conf->configuration.fanstages[2]);
     log_message(LOG_INFO,"Fan Temps set to %d %d %d",conf->configuration.thresholds[0],conf->configuration.thresholds[1],conf->configuration.thresholds[2]);
     log_message(LOG_INFO,"i2c bus set to /dev/i2c-%d",conf->extra.bus);
-    log_message(LOG_INFO,"Flags set to 0x%02X", conf->extra.flags.value); 
+    log_message(LOG_INFO,"Flags set to 0x%02X", conf->extra.flags.value);
     log_message(LOG_DEBUG,"  FLAG Disable Powerbutton %s SET", conf->extra.flags.PB_DISABLE ? "IS" : "NOT");
     log_message(LOG_DEBUG,"  FLAG Forground mode %s SET", conf->extra.flags.FOREGROUND_MODE ? "IS" : "NOT");
     log_message(LOG_DEBUG,"  FLAG Use sysfs for temperature %s SET", conf->extra.flags.USE_SYSFS ? "IS" : "NOT");
@@ -151,7 +151,7 @@ void Configuration_log(struct DTBO_Data* conf)
 
 /**
  * Read Device Tree Data
- * 
+ *
  * \param struct DTBO_Data* configuration
  * \return int
  */
@@ -255,11 +255,11 @@ typedef struct Conf_id {
     char    *text;
     eConf   ec;
 } Conf_id;
- 
+
 Conf_id conf_map[] = {
     { "fans", CFG_FANS },
     { "fan0", CFG_FAN0 },
-    { "fan1", CFG_FAN1 }, 
+    { "fan1", CFG_FAN1 },
     { "fan2", CFG_FAN2 },
     { "temps", CFG_TEMPS },
     { "temp0", CFG_TEMP0 },
@@ -286,7 +286,7 @@ static int findit(const char text[], int offset) {
 }
 
 static int get_vals(char text[], unsigned char* val, int max_elements, int offset)
-{ 
+{
     int count = 0;
     char *token = 0;
     token = strtok(text, ",");
@@ -303,10 +303,10 @@ static int get_vals(char text[], unsigned char* val, int max_elements, int offse
 
 /**
  * \brief Read Configuration File
- * 
+ *
  * \param filename configuration file's name
  * \param conf pointer to Configuration structer
- * 
+ *
  * \return 0 on success
  */
 int Read_Configuration_File(const char* filename, struct DTBO_Data* conf)
@@ -324,7 +324,7 @@ int Read_Configuration_File(const char* filename, struct DTBO_Data* conf)
     {
         log_message(LOG_ERROR, "Unable to access %s",filename);
         return -1;
-    }  
+    }
     struct DTBO_Config conf_in = { 0 };
     memcpy(&conf_in, &conf->configuration, sizeof(struct DTBO_Config));
     char buffer[MAX_LEN];
@@ -389,7 +389,7 @@ int Read_Configuration_File(const char* filename, struct DTBO_Data* conf)
                 break;
             default: continue;
         }
-    }    
+    }
     fclose(fp);
     Check_Configuration(conf, conf_in, 0);
     return 0;
@@ -442,13 +442,13 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
       break;
     case 1:
       config->configuration.fanstages[0] = (uint8_t)atoi(arg);
-      break; 
+      break;
     case 2:
       config->configuration.fanstages[1] = (uint8_t)atoi(arg);
-      break; 
+      break;
     case 3:
       config->configuration.fanstages[2] = (uint8_t)atoi(arg);
-      break; 
+      break;
     case 4:
       config->configuration.thresholds[0] = (uint8_t)atoi(arg);
       break;
@@ -476,7 +476,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
       if (conf.extra.flags.PB_DISABLE) printf ("DISABLE_POWERBUTTON ");
       if (conf.extra.flags.FOREGROUND_MODE) printf ("RUN_IN_FOREGROUND ");
       if (conf.extra.flags.USE_SYSFS) printf ("USE_SYSFS_TEMP ");
-      printf ("\n");    
+      printf ("\n");
       exit (0);
       break;
     }
@@ -505,11 +505,11 @@ static struct argp argp = { options, parse_opt, NULL, doc, 0, 0, 0 };
 
 /**
  * Parse Command Line Arguments
- * 
+ *
  * \param argc
  * \param argv
  * \param conf pointer to Configuration structer
- * 
+ *
  * \return 0 on success
  */
 int Parse_Command_Line_Arguments(int argc, char **argv, struct DTBO_Data* args, struct DTBO_Data* conf)
