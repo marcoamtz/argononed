@@ -6,7 +6,7 @@ Wants=multi-user.target
 [Service]
 Type=forking
 ExecStart=/usr/local/sbin/argononed
-PIDFile=/run/argononed.pid
+GuessMainPID=yes
 Restart=on-failure
 RestartSec=5
 
