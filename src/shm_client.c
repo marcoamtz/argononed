@@ -271,12 +271,20 @@ int Open_ArgonMem(ArgonMem* ar_ptr)
     }
     ar_ptr->shm_fd = shm_open(SHM_FILE, O_RDWR, 0664);
     if (ar_ptr->shm_fd == -1) return errno;
-    if (ftruncate(ar_ptr->shm_fd, SHM_SIZE) == -1) return errno;
+    if (ftruncate(ar_ptr->shm_fd, SHM_SIZE) == -1) {
+        int saved_errno = errno;
+        close(ar_ptr->shm_fd);
+        ar_ptr->shm_fd = 0;
+        return saved_errno;
+    }
     ar_ptr->memory = mmap(0, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, ar_ptr->shm_fd, 0);
     if (ar_ptr->memory == MAP_FAILED)
     {
+        int saved_errno = errno;
         fprintf(stderr, "ERROR:  Shared memory map error\n");
-        return errno;
+        close(ar_ptr->shm_fd);
+        ar_ptr->shm_fd = 0;
+        return saved_errno;
     }
     return 0;
 }

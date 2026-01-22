@@ -167,7 +167,7 @@ void Set_FanSpeed(uint8_t fan_speed)
         }
         log_message(LOG_INFO,"I2C Initialized");
     }
-    if (fan_speed <= 100 && fan_speed != speed)
+    if (fan_speed <= FAN_SPEED_MAX && fan_speed != speed)
     {
         if (write(file_i2c, &fan_speed, 1) != 1)
         {

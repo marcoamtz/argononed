@@ -194,8 +194,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     case 'f':
     {
       int fanspeed = atoi(arg);
-      if (fanspeed > 0 && fanspeed < 10) fanspeed = 10;
-      if (fanspeed > 100) fanspeed = 100;
+      if (fanspeed > 0 && fanspeed < 10) fanspeed = 10;  // Minimum active fan speed
+      if (fanspeed > FAN_SPEED_MAX) fanspeed = FAN_SPEED_MAX;
       arguments->fanoverride = fanspeed;
       break;
     }

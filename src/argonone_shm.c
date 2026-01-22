@@ -85,8 +85,7 @@ int reload_config_from_shm()
 {
     for (int i = 0; i < 3; i++)
     {
-        int lastval = 30;
-        if (ptr->config.thresholds[i] < lastval)
+        if (ptr->config.thresholds[i] < TEMPERATURE_MIN)
         {
             log_message(LOG_WARN,"Shared Memory contains bad value at threshold %d ABORTING reload", i);
             reset_shm();
@@ -95,7 +94,7 @@ int reload_config_from_shm()
     }
     for (int i = 0; i < 3; i++)
     {
-        if (ptr->config.fanstages[i] > 100 )
+        if (ptr->config.fanstages[i] > FAN_SPEED_MAX)
         {
             log_message(LOG_WARN,"Shared Memory contains bad value at fanstage %d ABORTING reload", i);
             reset_shm();
@@ -110,20 +109,20 @@ int reload_config_from_shm()
         ptr->config.thresholds,
         sizeof(Configuration.configuration.thresholds)
         );
-    if (ptr->config.hysteresis > 10)
+    if (ptr->config.hysteresis > HYSTERESIS_MAX)
     {
-        log_message(LOG_WARN,"Shared Memory contains bad value at hysteresis FORCING to 10");
-        ptr->config.hysteresis = 10;
+        log_message(LOG_WARN,"Shared Memory contains bad value at hysteresis FORCING to %d", HYSTERESIS_MAX);
+        ptr->config.hysteresis = HYSTERESIS_MAX;
     }
     Configuration.configuration.hysteresis = ptr->config.hysteresis;
-    if (ptr->fanmode > 3)
+    if (ptr->fanmode > FAN_MODE_MAX)
     {
         log_message(LOG_WARN,"Shared Memory contains bad value at fanmode FORCING to AUTO");
         ptr->fanmode = 0;
     }
     Configuration.runstate = ptr->fanmode;
-    Configuration.temperature_target = ptr->temperature_target >= 30 ? ptr->temperature_target : 30;
-    Configuration.fanspeed_Override   = ptr->fanspeed_Override <= 100 ? ptr->fanspeed_Override : 0;
+    Configuration.temperature_target = ptr->temperature_target >= TEMPERATURE_MIN ? ptr->temperature_target : TEMPERATURE_MIN;
+    Configuration.fanspeed_Override   = ptr->fanspeed_Override <= FAN_SPEED_MAX ? ptr->fanspeed_Override : FAN_SPEED_MAX;
     Configuration_log(&Configuration);
     //log_message(LOG_INFO,"Hysteresis set to %d",hysteresis);
     //log_message(LOG_INFO,"Fan Speeds set to %d%% %d%% %d%%",fanstage[0],fanstage[1],fanstage[2]);
@@ -144,8 +143,7 @@ int load_schedule(Schedule config)
     log_message(LOG_INFO, "load schedule");
     for (int i = 0; i < 3; i++)
     {
-        int lastval = 30;
-        if (config.thresholds[i] < lastval)
+        if (config.thresholds[i] < TEMPERATURE_MIN)
         {
             log_message(LOG_WARN,"Shared Memory contains bad value at threshold %d ABORTING reload", i);
             return -1;
@@ -153,7 +151,7 @@ int load_schedule(Schedule config)
     }
     for (int i = 0; i < 3; i++)
     {
-        if (config.fanstages[i] > 100 )
+        if (config.fanstages[i] > FAN_SPEED_MAX)
         {
             log_message(LOG_WARN,"Shared Memory contains bad value at fanstage %d ABORTING reload", i);
             return -1;
@@ -167,10 +165,10 @@ int load_schedule(Schedule config)
         config.thresholds,
         sizeof(Configuration.configuration.thresholds)
         );
-    if (Configuration.configuration.hysteresis > 10)
+    if (config.hysteresis > HYSTERESIS_MAX)
     {
-        log_message(LOG_WARN,"Shared Memory contains bad value at hysteresis FORCING to 10");
-        config.hysteresis = 10;
+        log_message(LOG_WARN,"Shared Memory contains bad value at hysteresis FORCING to %d", HYSTERESIS_MAX);
+        config.hysteresis = HYSTERESIS_MAX;
     }
     Configuration.configuration.hysteresis = config.hysteresis;
     //log_message(LOG_INFO,"Hysteresis set to %d",hysteresis);
@@ -188,18 +186,18 @@ int load_schedule(Schedule config)
  */
 int Change_mode(uint8_t fanmode, uint8_t temperature_target, uint8_t fanspeed_Override)
 {
-    if (fanmode > 3)
+    if (fanmode > FAN_MODE_MAX)
     {
         log_message(LOG_WARN,"Shared Memory contains bad value at fanmode FORCING to AUTO");
         return 1;
     }
-    if (fanmode == 3 && temperature_target >= ptr->temperature )
+    if (fanmode == FAN_MODE_MAX && temperature_target >= ptr->temperature )
     {
-        log_message(LOG_WARN,"Cannot execute cool down when target temperature is great than CPU Temperature");
+        log_message(LOG_WARN,"Cannot execute cool down when target temperature is greater than CPU Temperature");
         return 1;
     }
-    Configuration.temperature_target = temperature_target >= 30 ? temperature_target : 30;
-    Configuration.fanspeed_Override   = fanspeed_Override <= 100 ? fanspeed_Override : 100;
+    Configuration.temperature_target = temperature_target >= TEMPERATURE_MIN ? temperature_target : TEMPERATURE_MIN;
+    Configuration.fanspeed_Override   = fanspeed_Override <= FAN_SPEED_MAX ? fanspeed_Override : FAN_SPEED_MAX;
     Configuration.runstate = fanmode;
     log_message(LOG_INFO,"Fan Mode [ %s ] ", RUN_STATE_STR[Configuration.runstate]);
     log_message(LOG_INFO,"Fan Speed Override %3d ", Configuration.fanspeed_Override);

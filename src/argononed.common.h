@@ -48,6 +48,14 @@ SOFTWARE.
 #endif
 #define SHM_SIZE 512
 
+// Configuration limits - prevents magic numbers throughout the codebase
+#define FAN_SPEED_MIN       0
+#define FAN_SPEED_MAX       100
+#define TEMPERATURE_MIN     30
+#define TEMPERATURE_MAX     80
+#define HYSTERESIS_MAX      10
+#define FAN_MODE_MAX        3
+
 typedef enum {
     LOG_NONE = 0,
     LOG_FATAL,

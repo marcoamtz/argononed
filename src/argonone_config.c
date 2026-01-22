@@ -74,18 +74,18 @@ int Init_Configuration(struct DTBO_Data* conf)
  */
 int Check_Configuration(struct DTBO_Data* conf, struct DTBO_Config src, int Full_check)
 {
-    if (src.hysteresis <= 10) conf->configuration.hysteresis = src.hysteresis;
+    if (src.hysteresis <= HYSTERESIS_MAX) conf->configuration.hysteresis = src.hysteresis;
     for (int i = 0; i < 3; i++)
     {
         if (i > 0)
         {
-            if (src.fanstages[i] >= src.fanstages[i - 1])
-                src.fanstages[i] = conf->configuration.fanstages[i] = src.fanstages[i] <= 100 ? src.fanstages[i] : conf->configuration.fanstages[i];
+            if (src.fanstages[i] > src.fanstages[i - 1])
+                src.fanstages[i] = conf->configuration.fanstages[i] = src.fanstages[i] <= FAN_SPEED_MAX ? src.fanstages[i] : conf->configuration.fanstages[i];
             if (src.thresholds[i] > src.thresholds[i - 1])
-                src.thresholds[i] = conf->configuration.thresholds[i] = src.thresholds[i] <= 80 ? src.thresholds[i] : conf->configuration.thresholds[i];
+                src.thresholds[i] = conf->configuration.thresholds[i] = src.thresholds[i] <= TEMPERATURE_MAX ? src.thresholds[i] : conf->configuration.thresholds[i];
         } else {
-            src.fanstages[i]  = conf->configuration.fanstages[i]  = src.fanstages[i] <= 100 ? src.fanstages[i]  : conf->configuration.fanstages[i];
-            src.thresholds[i] = conf->configuration.thresholds[i] = src.thresholds[i] <= 80 ? src.thresholds[i] : conf->configuration.thresholds[i];
+            src.fanstages[i]  = conf->configuration.fanstages[i]  = src.fanstages[i] <= FAN_SPEED_MAX ? src.fanstages[i]  : conf->configuration.fanstages[i];
+            src.thresholds[i] = conf->configuration.thresholds[i] = src.thresholds[i] <= TEMPERATURE_MAX ? src.thresholds[i] : conf->configuration.thresholds[i];
         }
     }
     if (Full_check == 0) return 0;
