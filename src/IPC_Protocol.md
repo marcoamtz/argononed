@@ -34,7 +34,7 @@ struct SHM_REQ_MSG {
     struct DTBO_Config Schedules;
     uint8_t fanmode;
     uint8_t temperature_target;
-    uint8_t fanspeed_Overide;
+    uint8_t fanspeed_Override;
     uint8_t status;
 };
 ```
@@ -48,7 +48,7 @@ struct SHM_Data {
     struct DTBO_Config config;
     uint8_t fanmode;
     uint8_t temperature_target;
-    uint8_t fanspeed_Overide;
+    uint8_t fanspeed_Override;
     uint8_t status;
     uint8_t req_flags;
     struct SHM_DAEMON_STATS stat;
@@ -68,15 +68,15 @@ The fields are all 1 byte wide
 | 10        | Fan Mode              | 0         | 3         |
 | 11        | Temperature Target    | 30        | 85        |
 | 12        | Fan Speed Override    | 10 *\*\** | 100       |
-| 13        | Status of Request     | 0         | 2         |  
+| 13        | Status of Request     | 0         | 2         |
 | 14        | Request Flags         | 0         | -- *\*\*\**|
 | **15 - 19**| **Daemon Statistic** |           |           |
 | **20 - 31**| **Request Message**  |           |           |
 | **32 - 43**| **Request Message**  | **RESERVED**          |
 
-*As of version 0.3.1*  
+*As of version 0.3.1*
 *Bytes 32 - 43 are **RESERVED** for a second message channel TBD*
 
-*\**     Hysteresis can be as high as 10 if the thresholds are 11 degrees apart  
-*\*\**   Fan Speed Override can be set by the daemon to 0 this is allowed  
+*\**     Hysteresis can be as high as 10 if the thresholds are 11 degrees apart
+*\*\**   Fan Speed Override can be set by the daemon to 0 this is allowed
 *\*\*\** Undefined

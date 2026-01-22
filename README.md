@@ -20,7 +20,7 @@ Simply put I didn't like the OEM software.  It works sure but it uses Python and
 
 ## OS Support
 
-The current list of supported OS's are  
+The current list of supported OS's are
 
 * Raspberry Pi OS 32bit or 64bit
 * RetroPi
@@ -55,7 +55,7 @@ If your OS isn't on this list it means that the installer isn't setup for your O
 
 Firstly you need to have a build environment setup, that includes the following `gcc dtc git bash linux-headers make git`
 
-*NOTE : The package names will be different depending on your OS so I've only given their binary names. Refer to your distribution for what you need to install.*  
+*NOTE : The package names will be different depending on your OS so I've only given their binary names. Refer to your distribution for what you need to install.*
 
 I've tried to make the installer as simple as possible. After cloning this repo simply run ```./install``` You may need to reboot for full functionality.
 
@@ -134,9 +134,9 @@ The daemon now accepts command line arguments.
       --temps=VALUE          Set Temperature values
       --conf=FILENAME        load config
       --forceflag=VALUE      Force flags to VALUE
-  -F, --forground            Run in Forground
+  -F, --forground            Run in Foreground
   -l, --loglevel=VALUE       Set Log level
-  -c, --colour               Run in Forground with colour
+  -c, --colour               Run in Foreground with colour
       --dumpconf             Dump build config
   -?, --help                 Give this help list
       --usage                Give a short usage message
@@ -167,8 +167,8 @@ In order to upgrade to the latest version the current method is to pull the upda
 
 ## Logging Options
 
-The default build will generate a very detailed logs if you want less logging then add  
-```make LOGLEVEL=[0-6]```  
+The default build will generate a very detailed logs if you want less logging then add
+```make LOGLEVEL=[0-6]```
 The log levels go in this order: NONE, FATAL, CRITICAL, ERROR, WARNING, INFO, DEBUG. A value of 0 disables logging. It is possible to turn logging back on or change the level using the `-l#` command line argument.
 
 ## Advanced Build Options
@@ -189,12 +189,12 @@ The Daemon has 4 modes of operation but will always starts in Automatic mode.  C
 
 ### Cool Down Mode
 
-In cool down mode the fan has a set temperature you want to reach before switching back to automatic control.  This is all set as follows   ```argonone-cli --cooldown <TEMP> [--fan <SPEED>]```  
-***NOTE***: *The speed is optional and the default is 10% it's also import to note that if the temperature continues to climb the schedules set for the fan are ignored.*  
+In cool down mode the fan has a set temperature you want to reach before switching back to automatic control.  This is all set as follows   ```argonone-cli --cooldown <TEMP> [--fan <SPEED>]```
+***NOTE***: *The speed is optional and the default is 10% it's also import to note that if the temperature continues to climb the schedules set for the fan are ignored.*
 
-### Manual Mode  
+### Manual Mode
 
-As the name implies your in control over the fan the schedules are ignored.  To access this as follows ```argonone-cli --manual [--fan <SPEED>]```  
+As the name implies your in control over the fan the schedules are ignored.  To access this as follows ```argonone-cli --manual [--fan <SPEED>]```
 ***NOTE***: *The fan speed is optional and if not set the fans speed is left alone.*
 
 ### Auto Mode
@@ -212,16 +212,16 @@ The `argonone-cli` command line tool lets you change setting on the fly. It comm
 
 ## Setting schedules
 
-Want to adjust the when the fan comes on, maybe it's not staying on long enough you can change all set points in the schedules from the command line **without** rebooting.  the values are fan[0-2] temp[0-2] and hysteresis.  It's important when changing these values that you remember that the daemon will reject bad values and/or change them to something else.  It's also important to commit the changes you make otherwise they won't do anything.  The value rules are simple each stage must to greater than the one before it and there are minimum and max values.  
-For temperature the minimum value is 30° the maximum is currently undefined.  
-For the fan the minimum speed is 10% and the maximum is 100%.  
-For Hysteresis the minimum is 0° and the maximum is 10°  
+Want to adjust the when the fan comes on, maybe it's not staying on long enough you can change all set points in the schedules from the command line **without** rebooting.  the values are fan[0-2] temp[0-2] and hysteresis.  It's important when changing these values that you remember that the daemon will reject bad values and/or change them to something else.  It's also important to commit the changes you make otherwise they won't do anything.  The value rules are simple each stage must to greater than the one before it and there are minimum and max values.
+For temperature the minimum value is 30° the maximum is currently undefined.
+For the fan the minimum speed is 10% and the maximum is 100%.
+For Hysteresis the minimum is 0° and the maximum is 10°
 
-You can set your values like in this example.  
+You can set your values like in this example.
 
 ```text
 argonone-cli --fan0 25 --temp0 50 --hysteresis 10 --commit
-```  
+```
 
 The following method is not supported.
 
@@ -239,15 +239,15 @@ The changes **MUST** in one shot and have `--commit` them for them to take effec
 New error flags are being added to share memory and will soon be available in a memory decode. The goal of these flags is to make determining the source of an error more obvious without the need to dive through logs that may be disabled depending on your build options.
 
 ```text
->> DECODEING MEMORY <<
+>> DECODING MEMORY <<
 Fan Status OFF Speed 0%
 System Temperature 45°
 Hysteresis set to 10°
 Fan Speeds set to 10% 55% 100%
 Fan Temps set to 55° 60° 65°
-Fan Mode [ AUTO ] 
-Fan Speed Override 0% 
-Target Temperature 0° 
+Fan Mode [ AUTO ]
+Fan Speed Override 0%
+Target Temperature 0°
 Daemon Status : Waiting for request
 Maximum Temperature : 45°
 Minimum Temperature : 44°
@@ -259,15 +259,15 @@ Daemon Critical Errors : 3
 This is the current output of `argonone-cli --decode` you can see something is wrong but what it is we have to look into the logs.
 
 ```text
->> DECODEING MEMORY <<
+>> DECODING MEMORY <<
 Fan Status OFF Speed 0%
 System Temperature 45°
 Hysteresis set to 10°
 Fan Speeds set to 10% 55% 100%
 Fan Temps set to 55° 60° 65°
-Fan Mode [ AUTO ] 
-Fan Speed Override 0% 
-Target Temperature 0° 
+Fan Mode [ AUTO ]
+Fan Speed Override 0%
+Target Temperature 0°
 Daemon Status : Waiting for request
 Maximum Temperature : 45°
 Minimum Temperature : 44°
@@ -286,10 +286,10 @@ I have a docker solution for building packages read about it [here](docker/READM
 
 ## Argon Artik Hat
 
-If you have an Argon Artik Hat and you see these error message:  
+If you have an Argon Artik Hat and you see these error message:
 
 `Failed to load HAT overlay`
 
-`dterror: not a valid FDT - err - 9`  
+`dterror: not a valid FDT - err - 9`
 
 Check out my [firmware fix](firmware/README.md).

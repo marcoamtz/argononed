@@ -47,9 +47,9 @@ void Set_FanSpeed(uint8_t fan_speed);
 
 /**
  * \brief Prepare daemon for shutdown.
- * 
+ *
  * \return none
- */ 
+ */
 void Clean_Exit(int status)
 {
     log_message(LOG_INFO, "Begin Daemon Clean up");
@@ -67,12 +67,12 @@ void Clean_Exit(int status)
 
 /**
  * \brief Signal handler
- * 
+ *
  * \attention This function should not be called directly
- * 
- * \param sig Signal received 
+ *
+ * \param sig Signal received
  * \return none
- */ 
+ */
 void signal_handler(int sig){
     switch(sig){
         case SIGHUP:
@@ -96,9 +96,9 @@ void signal_handler(int sig){
 
 /**
  * \brief Alarm signal handler
- * 
+ *
  * \attention This function shouldn't be called directly
- *  
+ *
  * \param sig ignored
  */
 void Alarm_handler(int sig __attribute__((unused)))
@@ -108,21 +108,21 @@ void Alarm_handler(int sig __attribute__((unused)))
 
 /**
  * \brief Send fan speed request to the argon micro controller
- * 
+ *
  * This function will attempt connect to the configured i2c bus.
  * On the event of a bus error the connection is closed and reset
- * 
+ *
  * \attention THERE IS NO ERROR FEEDBACK
- * 
+ *
  * \todo Add Error feedback and i2c bus scanning
- * 
+ *
  * \param[in] fan_speed 0-100 to set fanspeed or 0xFF to close I2C interface
  * \return none
  */
 void Set_FanSpeed(uint8_t fan_speed)
 {
     static int file_i2c = 0;        // i2c file descripter
-    static uint8_t speed = 1;       // Current fan speed 
+    static uint8_t speed = 1;       // Current fan speed
     unsigned long functions = 0;
 	if (file_i2c == 0)
     {
@@ -185,14 +185,14 @@ void Set_FanSpeed(uint8_t fan_speed)
 }
 /**
  * \brief Read the CPU temperature
- * 
+ *
  * Fetch the CPU temperature, this will use the configured interface
  * if the temperature cannot be read then return -1 and do not update
  * CPU_Temp
- * 
+ *
  * \param[OUT] CPU_Temperature* pointer to hold CPU temperature
  * \param[IN] command 0 get temperature, 1 close fd if open
- * \return 0 if CPU_Temp is valid 
+ * \return 0 if CPU_Temp is valid
  */
 int Get_CPU_Temp(uint32_t *CPU_Temperature, uint8_t command)
 {
@@ -264,7 +264,7 @@ int Get_CPU_Temp(uint32_t *CPU_Temperature, uint8_t command)
 
 /**
  * \brief Read temperature and process temperature data
- * 
+ *
  * \note This is meant to be called with a Timer.
  * \bug  If the temperature cannot be monitored then fan control isn't possible.
  * \param timer_id calling timer id
@@ -277,67 +277,7 @@ void TMR_Get_temp(size_t timer_id, void *user_data)
 	static uint8_t fanspeed = 0;
     static uint8_t temp_error = 0;
     uint8_t command = (user_data == NULL ? 0 :*(uint8_t*)user_data);
-#if 0
-    static int32_t fdtemp = 0;
-    FILE* fptemp = 0;
-    uint32_t property[10] =
-    {
-        0x00000000,
-        0x00000000,
-        0x00030006,
-        0x00000008,
-        0x00000004,
-        0x00000000,
-        0x00000000,
-        0x00000000,
-        0x00000000,
-        0x00000000
-    };
-    if (Configuration.extra.flags.USE_SYSFS)
-    {
-        char filename[36];
-        snprintf(filename,36,"/sys/class/hwmon/hwmon%d/temp1_input", Configuration.extra.flags.SET_HWMON_NUM);
-        log_message(LOG_DEBUG,"Open %s for temperature ",filename);
-        fptemp = fopen(filename, "r");
-        if (fptemp)
-        {
-            fscanf(fptemp, "%d", &CPU_Temp);
-            fclose(fptemp);
-        } else {
-            stop_timer(timer_id);
-            log_message(LOG_CRITICAL, "Temperature can not be monitored!!");
-        }
-        CPU_Temp = CPU_Temp / 1000;
-    } else {
-        property[0] = 10 * sizeof(property[0]);
-        if (user_data == NULL)
-        {
-            if (fdtemp == 0)
-            {
-                fdtemp = open("/dev/vcio", 0);
-                if (fdtemp == -1)
-                {
-                    log_message(LOG_CRITICAL, "Cannot access VideoCore I/O!");
-                    stop_timer(timer_id);
-                    log_message(LOG_CRITICAL, "Temperature can not be monitored!!");
-                } else { // this will flood the logs!
-                    // log_message(LOG_INFO, "Successfully opened /dev/vcio for temperature sensor");
-                }
-            }
-            if (ioctl(fdtemp, _IOWR(100, 0, char *), property) == -1)
-            {
-                log_message(LOG_CRITICAL, "Cannot get CPU Temp!");
-                stop_timer(timer_id);
-                log_message(LOG_CRITICAL, "Temperature can not be monitored!!");
-            }
-            CPU_Temp = property[6] / 1000;
-        } else {
-            close(fdtemp);
-            log_message(LOG_INFO, "Successfully closed temperature sensor");
-            return;
-        }
-    } 
-#endif
+
     switch (command)
     {
         case 0:
@@ -352,7 +292,6 @@ void TMR_Get_temp(size_t timer_id, void *user_data)
             Get_CPU_Temp(&CPU_Temp, command);
     }
 
-    #if 1 // SKIP FAN SWITCHING
     switch (Configuration.runstate)
     {
         case 0: //AUTO
@@ -380,30 +319,29 @@ void TMR_Get_temp(size_t timer_id, void *user_data)
         break;
         case 1: Set_FanSpeed(0); break; // OFF
         case 2: // MANUAL OVERRIDE
-        Set_FanSpeed(Configuration.fanspeed_Overide);
+        Set_FanSpeed(Configuration.fanspeed_Override);
         break;
         case 3: // COOLDOWN
         if (CPU_Temp <= Configuration.temperature_target)
         {
-            log_message(LOG_INFO, "Cool down complete. switch to AUTO mode"); 
+            log_message(LOG_INFO, "Cool down complete. switch to AUTO mode");
             Set_FanSpeed(0);
             Configuration.runstate = 0;
             ptr->fanmode = 0;
         } else {
-            Set_FanSpeed(Configuration.fanspeed_Overide);
+            Set_FanSpeed(Configuration.fanspeed_Override);
         }
         break;
     }
-    #endif
     ptr->temperature = (uint8_t)CPU_Temp;
     if (CPU_Temp > ptr->stat.max_temperature) ptr->stat.max_temperature = (uint8_t)CPU_Temp;
     if ( (ptr->stat.min_temperature == 0) || (CPU_Temp < ptr->stat.min_temperature)) ptr->stat.min_temperature = (uint8_t)CPU_Temp;
 }
 /**
  * \brief This Function is used to watch for the power button events.
- * 
+ *
  * \note Call is Blocking
- * \param[out] Pulse_Time_ms pointer used to hold the pulse time in ms 
+ * \param[out] Pulse_Time_ms pointer used to hold the pulse time in ms
  * \return 0 when Pule_Time_ms is valid or error code
  */
 int32_t monitor_device(uint32_t *Pulse_Time_ms)
@@ -412,7 +350,7 @@ int32_t monitor_device(uint32_t *Pulse_Time_ms)
 	struct gpioevent_request req;
 	int fd;
 	int ret = 0;
-    if (E_Flag == -1 || Configuration.extra.flags.PB_DISABLE) { // E_Flag -1 disable attempts to open /dev/gpiochip0 
+    if (E_Flag == -1 || Configuration.extra.flags.PB_DISABLE) { // E_Flag -1 disable attempts to open /dev/gpiochip0
         while (1) {
             usleep(10000);
         }
@@ -504,9 +442,9 @@ exit_close_error:
 /**
  * \brief Fork into a daemon
  * \note only call once
- * 
+ *
  * \param *conf Current configuration
- * 
+ *
  * \return none
  */
 int daemonize(struct DTBO_Data *conf){
@@ -540,8 +478,8 @@ int daemonize(struct DTBO_Data *conf){
         log_message(LOG_FATAL,"Lock file cannot be locked");
         return 1;
     }
-    sprintf(str,"%d\n",getpid());
-    if (write(lfp,str,strlen(str)) > 0) 
+    snprintf(str, sizeof(str), "%d\n", getpid());
+    if (write(lfp,str,strlen(str)) > 0)
     {
         log_message(LOG_INFO,"Lock file created");
     } else {
@@ -549,19 +487,37 @@ int daemonize(struct DTBO_Data *conf){
         return 1;
     }
     close(lfp);
-    signal(SIGCHLD,SIG_IGN);
-    signal(SIGTSTP,SIG_IGN);
-    signal(SIGTTOU,SIG_IGN);
-    signal(SIGTTIN,SIG_IGN);
-    signal(SIGPIPE,SIG_IGN);
-    signal(SIGALRM,Alarm_handler);
-    signal(SIGCHLD,signal_handler);
-    signal(SIGUSR1,signal_handler);
-    signal(SIGUSR2,signal_handler);
-    signal(SIGURG,signal_handler);
-    signal(SIGHUP,signal_handler);
-    signal(SIGINT,signal_handler);
-    signal(SIGTERM,signal_handler);
+
+    // Setup signal handlers using sigaction for more reliable behavior
+    struct sigaction sa_ign = {0}, sa_main = {0}, sa_alrm = {0};
+
+    // Signals to ignore
+    sa_ign.sa_handler = SIG_IGN;
+    sigemptyset(&sa_ign.sa_mask);
+    sa_ign.sa_flags = 0;
+    sigaction(SIGTSTP, &sa_ign, NULL);
+    sigaction(SIGTTOU, &sa_ign, NULL);
+    sigaction(SIGTTIN, &sa_ign, NULL);
+    sigaction(SIGPIPE, &sa_ign, NULL);
+
+    // Alarm handler
+    sa_alrm.sa_handler = Alarm_handler;
+    sigemptyset(&sa_alrm.sa_mask);
+    sa_alrm.sa_flags = 0;
+    sigaction(SIGALRM, &sa_alrm, NULL);
+
+    // Main signal handler with SA_RESTART to automatically restart interrupted syscalls
+    sa_main.sa_handler = signal_handler;
+    sigemptyset(&sa_main.sa_mask);
+    sa_main.sa_flags = SA_RESTART;
+    sigaction(SIGCHLD, &sa_main, NULL);
+    sigaction(SIGUSR1, &sa_main, NULL);
+    sigaction(SIGUSR2, &sa_main, NULL);
+    sigaction(SIGURG, &sa_main, NULL);
+    sigaction(SIGHUP, &sa_main, NULL);
+    sigaction(SIGINT, &sa_main, NULL);
+    sigaction(SIGTERM, &sa_main, NULL);
+
     return 0;
 }
 
@@ -573,7 +529,6 @@ int main(int argc,char **argv)
     Configuration.extra.flags.value = Arguments.extra.flags.value;
     Configuration.Log_Level = Arguments.Log_Level;
     Configuration.colour = Arguments.colour;
-#if 1 // bypass privilege user checks
     // Check we are running as root
     if (getuid() != 0) {
         fprintf(stderr, "ERROR:  Permissions error, must be run as root\n");
@@ -597,7 +552,6 @@ int main(int argc,char **argv)
         shm_unlink(SHM_FILE);
         log_message(LOG_INFO, "Clean up complete");
     }
-#endif
     log_message(LOG_INFO,"Startup ArgonOne Daemon version %s", DAEMON_VERSION);
     log_message(LOG_INFO + LOG_BOLD,"Checking Board Revision");
     struct identapi_struct Pirev;
@@ -677,7 +631,7 @@ int main(int argc,char **argv)
         log_message(LOG_INFO + LOG_BOLD,"Daemon Ready");
         for(;;)
         {
-            sleep(1); // Main loop to sleep 
+            sleep(1); // Main loop to sleep
         }
     }
 

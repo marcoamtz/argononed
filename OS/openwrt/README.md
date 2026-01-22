@@ -9,7 +9,7 @@ apk --allow-untrusted add argp-standalone
 git clone https://gitlab.com/DarkElvenAngel/argononed.git
 cd argononed
 git checkout 0.3.x
-TARGET_DISTRO=openwrt ./package.sh 
+TARGET_DISTRO=openwrt ./package.sh
 ```
 
 ### The expected output
@@ -17,11 +17,11 @@ TARGET_DISTRO=openwrt ./package.sh
 ```text
     ___                                                __
    /   |  _________ _____  ____  ____  ____  ___  ____/ /
-  / /| | / ___/ __ `/ __ \/ __ \/ __ \/ __ \/ _ \/ __  / 
- / ___ |/ /  / /_/ / /_/ / / / / /_/ / / / /  __/ /_/ /  
-/_/  |_/_/   \__, /\____/_/ /_/\____/_/ /_/\___/\__,_/   
-            /____/                                       
-                                                PACKAGER 
+  / /| | / ___/ __ `/ __ \/ __ \/ __ \/ __ \/ _ \/ __  /
+ / ___ |/ /  / /_/ / /_/ / / / / /_/ / / / /  __/ /_/ /
+/_/  |_/_/   \__, /\____/_/ /_/\____/_/ /_/\___/\__,_/
+            /____/
+                                                PACKAGER
 _________________________________________________________
 ARGON ONE DAEMON CONFIGURING ...
 Distro check [openwrt] : EXPERIMENTAL
@@ -40,7 +40,7 @@ INFO:  Checking files ... OK
 INFO:  Building Installer ... OK
 INFO:  Packing files ... OK
 INFO:  Verify package ... OK
-INFO:  Package build/openwrt.pkg.sh is complete 
+INFO:  Package build/openwrt.pkg.sh is complete
 ```
 
 Execute `./build/openwrt.pkg.sh`
@@ -63,14 +63,14 @@ reboot required
 This can be confirmed with `argonone-cli --decode`
 
 ```text
->> DECODEING MEMORY <<
+>> DECODING MEMORY <<
 Fan Status OFF Speed 0%
 System Temperature 39°
 Hysteresis set to 3°
 Fan Speeds set to 10% 55% 100%
 Fan Temps set to 55° 60° 65°
-Fan Mode [ AUTO ] 
-Fan Speed Override 0% 
+Fan Mode [ AUTO ]
+Fan Speed Override 0%
 Target Temperature 0°
 Daemon Status : Waiting for request
 Maximum Temperature : 39°

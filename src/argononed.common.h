@@ -31,7 +31,7 @@ SOFTWARE.
 
 #define RUNNING_DIR "/tmp"
 
-#ifndef LOG_FILE 
+#ifndef LOG_FILE
 #define LOG_FILE "/var/log/argononed.log"
 #endif
 
@@ -62,9 +62,9 @@ typedef enum {
 
 /**
  * \brief Schedule struct holds setting for when the fan is triggered, speed, and hysteresis
- * 
+ *
  * /struct Schedule
- * 
+ *
  */
 typedef struct DTBO_Config {
     uint8_t fanstages[3];
@@ -108,17 +108,17 @@ struct DTO_FLAGS{
 };
 
 /**
- * \brief Devicetree extra 
- * 
+ * \brief Devicetree extra
+ *
  */
 struct DTO_EXTRA{
     uint8_t bus;                                // i2c bus number
     struct DTO_FLAGS flags;                     // Devicetree flag settings
-}; 
+};
 
 /**
  * \brief Struct used to hold Daemon configuration
- * 
+ *
  */
 typedef struct DTBO_Data{
     uint8_t             version[3];             // Devicetree overlay version
@@ -129,7 +129,7 @@ typedef struct DTBO_Data{
     uint8_t             colour;                 // Colour output
     uint8_t             runstate;               // Fan mode
     uint8_t             temperature_target;     // Target temperature used with Cooldown mode
-    uint8_t             fanspeed_Overide;       // Fan speed used only for Manual and Cooldown modes
+    uint8_t             fanspeed_Override;       // Fan speed used only for Manual and Cooldown modes
 } Daemon_Conf;
 
 struct SHM_REQ_MSG {
@@ -137,17 +137,17 @@ struct SHM_REQ_MSG {
     Schedule Schedules;
     uint8_t fanmode;
     uint8_t temperature_target;
-    uint8_t fanspeed_Overide;
+    uint8_t fanspeed_Override;
     uint8_t status;
 };
 
-#define REQ_WAIT 0              // Waiting for request 
+#define REQ_WAIT 0              // Waiting for request
 #define REQ_RDY  1              // Request is ready for processing
 #define REQ_PEND 2              // Request pending
 #define REQ_ERR  3              // Error in last Request
 #define REQ_SYNC 4              // Request Status to sync
 #define REQ_CLR  5              // Clear request
-#define REQ_RST  6              // Request Daemon to reset 
+#define REQ_RST  6              // Request Daemon to reset
 #define REQ_HOLD 7              // Hold Requests
 #define REQ_OFF  8              // Request Daemon to shutdown
 #define REQ_SIG  9              // Request Commit Signal
@@ -155,7 +155,7 @@ struct SHM_REQ_MSG {
 #define REQ_FLAG_MODE   0x01    // Request Mode change
 #define REQ_FLAG_CONF   0x02    // Request Config change
 #define REQ_FLAG_CMD    0x04    // Request Command
-#define REQ_FLAG_STAT   0x08    // Request Statistics Reset *REQ_CLR only 
+#define REQ_FLAG_STAT   0x08    // Request Statistics Reset *REQ_CLR only
 
 struct SHM_Data {               //  DAEMON  |   CLIENT
     uint8_t fanspeed;           //      WO  |   RO
@@ -163,7 +163,7 @@ struct SHM_Data {               //  DAEMON  |   CLIENT
     struct DTBO_Config config;  //      RW  |   RW
     uint8_t fanmode;            //      RW  |   RW
     uint8_t temperature_target; //      RW  |   RW
-    uint8_t fanspeed_Overide;   //      RO  |   RW
+    uint8_t fanspeed_Override;   //      RO  |   RW
     uint8_t status;             //      RW  |   RW
     uint8_t req_flags;          //      RW  |   WO
     struct SHM_DAEMON_STATS stat;
@@ -173,7 +173,7 @@ struct SHM_Data {               //  DAEMON  |   CLIENT
 
 /**
  * \brief Write formatted output to Log file.
- * 
+ *
  * \param level Message's Log level
  * \param message formatted text to output
  * \return none
@@ -181,20 +181,20 @@ struct SHM_Data {               //  DAEMON  |   CLIENT
 void log_message(Log_Level level, const char *message, ...);
 /**
  * \brief Initialize the configuration
- * 
+ *
  * \param struct DTBO_Data* configuration
  * \return int
  */
 int Init_Configuration(struct DTBO_Data* conf);
 /**
  * \brief Send Configuration output to log
- * 
+ *
  * \param struct DTBO_Data* configuration
  */
 void Configuration_log(struct DTBO_Data* conf);
 /**
  * \brief Check the configuration
- * 
+ *
  * \param struct DTBO_Data* configuration
  * \param struct DTBO_Data* src)
  * \param int Full_check
@@ -203,27 +203,27 @@ void Configuration_log(struct DTBO_Data* conf);
 int Check_Configuration(struct DTBO_Data* conf, struct DTBO_Config src, int Full_check);
 /**
  * \brief Read Device Tree Data
- * 
+ *
  * \param struct DTBO_Data* configuration
  * \return int
  */
 int Read_DeviceTree_Data(struct DTBO_Data* conf);
 /**
  * Read Configuration File
- * 
+ *
  * \param filename configuration file's name
  * \param conf pointer to Configuration structer
- * 
+ *
  * \return 0 on success
  */
 int Read_Configuration_File(const char* filename, struct DTBO_Data* conf);
 /**
  * \brief Parse Command Line Arguments
- * 
+ *
  * \param argc
  * \param argv
  * \param conf pointer to Configuration structer
- * 
+ *
  * \return 0 on success
  */
 int Parse_Command_Line_Arguments(int argc, char **argv, struct DTBO_Data* args, struct DTBO_Data* conf);

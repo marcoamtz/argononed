@@ -138,7 +138,7 @@ void Configuration_log(struct DTBO_Data* conf)
     log_message(LOG_INFO,"i2c bus set to /dev/i2c-%d",conf->extra.bus);
     log_message(LOG_INFO,"Flags set to 0x%02X", conf->extra.flags.value);
     log_message(LOG_DEBUG,"  FLAG Disable Powerbutton %s SET", conf->extra.flags.PB_DISABLE ? "IS" : "NOT");
-    log_message(LOG_DEBUG,"  FLAG Forground mode %s SET", conf->extra.flags.FOREGROUND_MODE ? "IS" : "NOT");
+    log_message(LOG_DEBUG,"  FLAG Foreground mode %s SET", conf->extra.flags.FOREGROUND_MODE ? "IS" : "NOT");
     log_message(LOG_DEBUG,"  FLAG Use sysfs for temperature %s SET", conf->extra.flags.USE_SYSFS ? "IS" : "NOT");
     log_message(LOG_DEBUG,"  FLAG Hardware monitor address %x", conf->extra.flags.SET_HWMON_NUM);
     if ( conf->extra.flags.USE_SYSFS)
@@ -414,11 +414,11 @@ static struct argp_option options[] = {
   { "temp2",      6,   "VALUE",    0, "Set Temperature3 value"          ,0 },
   { "hysteresis", 7,   "VALUE",    0, "Set Hysteresis"                  ,0 },
   { "conf",       8,   "FILENAME", 0, "load config"                     ,1 },
-  { "forground",  'F', 0,          0, "Run in Forground"                ,1 },
+  { "forground",  'F', 0,          0, "Run in Foreground"                ,1 },
   { "loglevel",   'l', "VALUE",    0, "Set Log level"                   ,1 },
   { "forceflag",  9,   "VALUE",    0, "Force flags to VALUE"            ,1 },
   { "dumpconf",   10,  0,          0, "Dump build config"               ,2 },
-  { "colour",     'c', 0,          0, "Run in Forground with colour"    ,2 },
+  { "colour",     'c', 0,          0, "Run in Foreground with colour"    ,2 },
   { 0 }
 };
 

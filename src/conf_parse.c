@@ -7,7 +7,7 @@
 struct DTBO_Data conf, Configuration;
 struct SHM_Data* ptr;
 #define MAX_LEN 256
- 
+
 typedef enum { CFG_FANS, CFG_FAN0, CFG_FAN1, CFG_FAN2,
     CFG_TEMPS, CFG_TEMP0, CFG_TEMP1, CFG_TEMP2,
     CFG_HYSTERESIS, CFG_FLAGS, CFG_BUS, CFG_LOGLEVEL } eConf;
@@ -16,11 +16,11 @@ typedef struct Conf_id {
     char    *text;
     eConf   ec;
 } Conf_id;
- 
+
 Conf_id conf_map[] = {
     { "fans", CFG_FANS },
     { "fan0", CFG_FAN0 },
-    { "fan1", CFG_FAN1 }, 
+    { "fan1", CFG_FAN1 },
     { "fan2", CFG_FAN2 },
     { "temps", CFG_TEMPS },
     { "temp0", CFG_TEMP0 },
@@ -47,7 +47,7 @@ int findit(const char text[], int offset) {
 }
 
 int get_vals(char text[], unsigned char* val, int max_elements, int offset)
-{ 
+{
     int count = 0;
     char *token = 0;
     token = strtok(text, ",");
@@ -158,10 +158,10 @@ int main(void)
     printf("Fan Speeds set to %d%% %d%% %d%%\n",conf.configuration.fanstages[0],conf.configuration.fanstages[1],conf.configuration.fanstages[2]);
     printf("Fan Temps set to %d %d %d\n",conf.configuration.thresholds[0],conf.configuration.thresholds[1],conf.configuration.thresholds[2]);
     printf("i2c bus set to /dev/i2c-%d\n",conf.extra.bus);
-    printf("Flags set to 0x%02X\n", conf.extra.flags.value); 
+    printf("Flags set to 0x%02X\n", conf.extra.flags.value);
     printf(" |==> FLAG Disable Powerbutton %s SET\n", conf.extra.flags.PB_DISABLE ? "IS" : "NOT");
-    printf(" |==> FLAG Forground mode %s SET\n", conf.extra.flags.FOREGROUND_MODE ? "IS" : "NOT");
+    printf(" |==> FLAG Foreground mode %s SET\n", conf.extra.flags.FOREGROUND_MODE ? "IS" : "NOT");
     printf(" |==> FLAG Use sysfs for temperature %s SET\n", conf.extra.flags.USE_SYSFS ? "IS" : "NOT");
-                
+
     return 0;
 }

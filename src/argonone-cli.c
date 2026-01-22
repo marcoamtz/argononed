@@ -112,7 +112,7 @@ struct arguments
   int silent, verbose, reload, reset, debug;
   int mode;
   int fanoverride;
-  int targettemp; 
+  int targettemp;
   struct DTBO_Config *Schedule;
 };
 
@@ -133,7 +133,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
       break;
     case 'r': case 1:
       arguments->reload = 1;
-      break; 
+      break;
     case ARGP_KEY_ARG:
       if (state->arg_num >= 2)
       {
@@ -223,7 +223,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
       mode_switch = 4;
       arguments->Schedule->fanstages[1] = atoi(arg);
       break;
-    
+
     case 5:
       if (mode_switch != -1 && mode_switch != 4)
       {
@@ -301,7 +301,7 @@ struct arguments arguments = {0};
 
 /**
  * Send Request and wait for reply
- * 
+ *
  * \param ptr Pointer to share memory data
  * \param pid PID of the daemon
  * \return 0 on success
@@ -317,13 +317,13 @@ int Send_Request(struct SHM_Data* ptr, int pid)
     uint8_t last_state = 0;
     if (arguments.debug) fprintf (stderr, "DEBUG:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");// < 10 ? STATUS_STR[*status] : "Unknown");
     if (arguments.verbose && !arguments.debug) fprintf (stderr, "INFO:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");
-    if (ptr->status != REQ_WAIT) 
+    if (ptr->status != REQ_WAIT)
     {
         if (!arguments.silent) fprintf (stderr, "WARNING:  argononed isn't ready retry");
         return 1;
     }
     ptr->status = REQ_RDY;
-    for(;ptr->status != REQ_WAIT;) 
+    for(;ptr->status != REQ_WAIT;)
     {
         if (last_state != ptr->status)
         {
@@ -337,7 +337,7 @@ int Send_Request(struct SHM_Data* ptr, int pid)
             }
         }
         msync(ptr,13,MS_SYNC);
-    } 
+    }
     if (arguments.debug) fprintf (stderr, "DEBUG:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");// < 10 ? STATUS_STR[*status] : "Unknown");
     if (arguments.verbose && !arguments.debug) fprintf (stderr, "INFO:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");
     ptr->status = REQ_CLR;
@@ -346,7 +346,7 @@ int Send_Request(struct SHM_Data* ptr, int pid)
 
 /**
  * Send Reset Request and wait for reply
- * 
+ *
  * \param ptr Pointer to share memory data
  * \param pid PID of the daemon
  * \return 0 on success
@@ -360,13 +360,13 @@ int Send_Reset(struct SHM_Data* ptr, int pid)
     }
     uint8_t last_state = 0;
     if (arguments.debug) fprintf (stderr, "DEBUG:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");// < 10 ? STATUS_STR[*status] : "Unknown");
-    if (ptr->status != REQ_WAIT) 
+    if (ptr->status != REQ_WAIT)
     {
         if (!arguments.silent) fprintf (stderr, "WARNING:  argononed isn't ready retry");
         return 1;
     }
     ptr->status = REQ_CLR;
-    for(;ptr->status != REQ_WAIT;) 
+    for(;ptr->status != REQ_WAIT;)
     {
         if (last_state != ptr->status)
         {
@@ -379,7 +379,7 @@ int Send_Reset(struct SHM_Data* ptr, int pid)
             }
         }
         msync(ptr,13,MS_SYNC);
-    } 
+    }
     if (arguments.debug) fprintf (stderr, "DEBUG:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");// < 10 ? STATUS_STR[*status] : "Unknown");
    return 0;
 }
@@ -441,7 +441,7 @@ int main (int argc, char** argv)
 
     // if (arguments.debug) fprintf(stderr,">> ARGUMENT PARSE <<\nMODE\t%d\nTEMP\t%d\nFANS\t%d\n", arguments.mode, arguments.targettemp, arguments.fanoverride);
 
-    if (arguments.mode < -2) 
+    if (arguments.mode < -2)
     {
 
 
@@ -460,10 +460,10 @@ int main (int argc, char** argv)
                   return 1;
               }
               if (arguments.fanoverride == 0) arguments.fanoverride = 10;
-            } 
+            }
             ptr->fanmode = arguments.mode;
             ptr->temperature_target = arguments.targettemp;
-            ptr->fanspeed_Overide = arguments.fanoverride;
+            ptr->fanspeed_Override = arguments.fanoverride;
             // kill(d_pid, 1); // Send update message
             if (Send_Request(ptr, d_pid) != 0) main_ret = 1;
         }
@@ -471,9 +471,9 @@ int main (int argc, char** argv)
         {
             ptr->fanmode = 0;
             ptr->temperature_target = 0;
-            ptr->fanspeed_Overide = 0;
+            ptr->fanspeed_Override = 0;
 
-            if (arguments.reload) 
+            if (arguments.reload)
             {
               if (Send_Request(ptr, d_pid) != 0) main_ret = 1;
               // kill(d_pid, 1); // Send update message
@@ -485,14 +485,14 @@ int main (int argc, char** argv)
         }
         if (arguments.mode == 5)
         {
-          printf(">> DECODEING MEMORY <<\n");
+          printf(">> DECODING MEMORY <<\n");
           printf("Fan Status %s Speed %d%%\n", ptr->fanspeed == 0x00 ? "OFF" : "ON", ptr->fanspeed);
           printf("System Temperature %d°\n", ptr->temperature);
           printf("Hysteresis set to %d°\n",ptr->config.hysteresis);
           printf("Fan Speeds set to %d%% %d%% %d%%\n",ptr->config.fanstages[0],ptr->config.fanstages[1],ptr->config.fanstages[2]);
           printf("Fan Temps set to %d° %d° %d°\n",ptr->config.thresholds[0],ptr->config.thresholds[1],ptr->config.thresholds[2]);
           printf("Fan Mode [ %s ] \n", RUN_STATE_STR[ptr->fanmode]);
-          printf("Fan Speed Override %d%% \n", ptr->fanspeed_Overide);
+          printf("Fan Speed Override %d%% \n", ptr->fanspeed_Override);
           printf("Target Temperature %d° \n", ptr->temperature_target);
           printf("Daemon Status : %s\n", ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");
           printf("Maximum Temperature : %d°\n", ptr->stat.max_temperature);

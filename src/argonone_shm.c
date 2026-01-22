@@ -59,13 +59,13 @@ int argonon_shm_start()
 
 /**
  * Reset Shared Memory to match correct values
- * 
+ *
  * \return none
  */
 void reset_shm()
 {
-    memcpy(ptr->config.fanstages, 
-        &Configuration.configuration.fanstages, 
+    memcpy(ptr->config.fanstages,
+        &Configuration.configuration.fanstages,
         sizeof(Configuration.configuration.fanstages)
         );
     memcpy(ptr->config.thresholds,
@@ -78,7 +78,7 @@ void reset_shm()
 
 /**
  * Reload the configuration from shared memory
- * 
+ *
  * \return 0 on success
  */
 int reload_config_from_shm()
@@ -116,32 +116,32 @@ int reload_config_from_shm()
         ptr->config.hysteresis = 10;
     }
     Configuration.configuration.hysteresis = ptr->config.hysteresis;
-    if (ptr->fanmode > 3) 
+    if (ptr->fanmode > 3)
     {
         log_message(LOG_WARN,"Shared Memory contains bad value at fanmode FORCING to AUTO");
         ptr->fanmode = 0;
     }
     Configuration.runstate = ptr->fanmode;
     Configuration.temperature_target = ptr->temperature_target >= 30 ? ptr->temperature_target : 30;
-    Configuration.fanspeed_Overide   = ptr->fanspeed_Overide <= 100 ? ptr->fanspeed_Overide : 0;
+    Configuration.fanspeed_Override   = ptr->fanspeed_Override <= 100 ? ptr->fanspeed_Override : 0;
     Configuration_log(&Configuration);
     //log_message(LOG_INFO,"Hysteresis set to %d",hysteresis);
     //log_message(LOG_INFO,"Fan Speeds set to %d%% %d%% %d%%",fanstage[0],fanstage[1],fanstage[2]);
     //log_message(LOG_INFO,"Fan Temps set to %d %d %d",threshold[0],threshold[1],threshold[2]);
     log_message(LOG_INFO,"Fan Mode [ %s ] ", RUN_STATE_STR[Configuration.runstate]);
-    log_message(LOG_INFO,"Fan Speed Override %3d ", Configuration.fanspeed_Overide);
-    log_message(LOG_INFO,"Target Temperature %d ", Configuration.temperature_target);   
+    log_message(LOG_INFO,"Fan Speed Override %3d ", Configuration.fanspeed_Override);
+    log_message(LOG_INFO,"Target Temperature %d ", Configuration.temperature_target);
     return 0;
 }
 /**
  * Load new schedule from IPC Message
- * 
+ *
  * \param config settings to apply
  * \return 0 on success
  */
 int load_schedule(Schedule config)
 {
-    log_message(LOG_INFO, "load schedule"); 
+    log_message(LOG_INFO, "load schedule");
     for (int i = 0; i < 3; i++)
     {
         int lastval = 30;
@@ -159,12 +159,12 @@ int load_schedule(Schedule config)
             return -1;
         }
     }
-    memcpy(&Configuration.configuration.fanstages, 
-        config.fanstages, 
+    memcpy(&Configuration.configuration.fanstages,
+        config.fanstages,
         sizeof(Configuration.configuration.fanstages)
         );
-    memcpy(&Configuration.configuration.thresholds, 
-        config.thresholds, 
+    memcpy(&Configuration.configuration.thresholds,
+        config.thresholds,
         sizeof(Configuration.configuration.thresholds)
         );
     if (Configuration.configuration.hysteresis > 10)
@@ -180,15 +180,15 @@ int load_schedule(Schedule config)
 }
 /**
  * Change Mode
- * 
+ *
  * \param fanmode
  * \param temperature_target
- * \param fanspeed_Overide
+ * \param fanspeed_Override
  * \return 0 on success
  */
-int Change_mode(uint8_t fanmode, uint8_t temperature_target, uint8_t fanspeed_Overide)
+int Change_mode(uint8_t fanmode, uint8_t temperature_target, uint8_t fanspeed_Override)
 {
-    if (fanmode > 3) 
+    if (fanmode > 3)
     {
         log_message(LOG_WARN,"Shared Memory contains bad value at fanmode FORCING to AUTO");
         return 1;
@@ -199,17 +199,17 @@ int Change_mode(uint8_t fanmode, uint8_t temperature_target, uint8_t fanspeed_Ov
         return 1;
     }
     Configuration.temperature_target = temperature_target >= 30 ? temperature_target : 30;
-    Configuration.fanspeed_Overide   = fanspeed_Overide <= 100 ? fanspeed_Overide : 100;
+    Configuration.fanspeed_Override   = fanspeed_Override <= 100 ? fanspeed_Override : 100;
     Configuration.runstate = fanmode;
     log_message(LOG_INFO,"Fan Mode [ %s ] ", RUN_STATE_STR[Configuration.runstate]);
-    log_message(LOG_INFO,"Fan Speed Override %3d ", Configuration.fanspeed_Overide);
+    log_message(LOG_INFO,"Fan Speed Override %3d ", Configuration.fanspeed_Override);
     log_message(LOG_INFO,"Target Temperature %d ", Configuration.temperature_target);
     return 0;
 }
 
 /**
  * Reset Shared Memory
- * 
+ *
  * \note This is meant to be called with a Timer.
  * \param timer_id calling timer id
  * \param user_data pointer to argument data
@@ -225,7 +225,7 @@ void TMR_SHM_Reset(size_t timer_id, void *user_data)
 }
 /**
  * Monitor Shared Memory for commands
- * 
+ *
  * \note This is meant to be called with a Timer.
  * \param timer_id calling timer id
  * \param user_data pointer to argument data
@@ -285,7 +285,7 @@ void TMR_SHM_Interface(size_t timer_id __attribute__((unused)), void *message_in
 
 /**
  * Monitor Shared Memory for commands
- * 
+ *
  * \note This is meant to be called with a Timer.
  * \param timer_id calling timer id
  * \param user_data pointer to argument data
@@ -309,7 +309,6 @@ void TMR_Legacy_Interface(size_t timer_id __attribute__((unused)), void *user_da
             case REQ_ERR: // Last command was error wait for reset
                 break;
             case REQ_RDY: // A shared memory command is ready for processing
-#if 1
                 ptr->status = REQ_PEND;
                 log_message (LOG_INFO + LOG_BOLD, "IPC [ Legacy ] Request reload of config");
                 if (reload_config_from_shm() == 0)
@@ -317,7 +316,6 @@ void TMR_Legacy_Interface(size_t timer_id __attribute__((unused)), void *user_da
                     ptr->status = REQ_WAIT;
                     return;
                 }
-#endif
                 ptr->status = REQ_ERR;
                 break;
             case REQ_CLR: // The request area and reset shared memory
