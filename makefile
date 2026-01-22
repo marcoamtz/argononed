@@ -7,7 +7,7 @@ MAKEFLAGS += --no-builtin-rules
 .SUFFIXES:
 
 CC           = gcc
-RM           = rm -v
+RM           = rm -vf
 DTC          = dtc -@ -I dts -O dtb -o
 BASH         = bash
 INSTALL      = install
