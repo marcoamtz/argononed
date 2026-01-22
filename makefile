@@ -1,6 +1,11 @@
 # ********************************************************************
 # Argonone Daemon Makefile
 # ********************************************************************
+
+# Disable built-in rules to speed up make (prevents slow implicit rule search)
+MAKEFLAGS += --no-builtin-rules
+.SUFFIXES:
+
 CC           = gcc
 RM           = rm -v
 DTC          = dtc -@ -I dts -O dtb -o
