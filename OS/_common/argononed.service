@@ -4,9 +4,8 @@ After=sysinit.target
 Wants=multi-user.target
 
 [Service]
-Type=forking
-ExecStart=/usr/sbin/argononed
-PIDFile=/run/argononed.pid
+Type=simple
+ExecStart=/usr/sbin/argononed -F
 Restart=on-failure
 RestartSec=5
 
