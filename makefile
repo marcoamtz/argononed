@@ -6,12 +6,14 @@
 MAKEFLAGS += --no-builtin-rules
 .SUFFIXES:
 
-CC           = gcc
+# Use ?= to allow environment override for cross-compilation
+CC           ?= gcc
 RM           = rm -vf
 DTC          = dtc -@ -I dts -O dtb -o
 BASH         = bash
 INSTALL      = install
 CFLAGS       = -Wall -s -O3
+CFLAGS_DEBUG = -Wall -g -O0 -DDEBUG
 LFLAGS       = -lpthread -lrt
 LFLAGS3      = -lrt
 OBJ_DAEMON   = build/argononed.o build/argonone_config.o build/logger.o build/event_timer.o build/argonone_shm.o
@@ -88,7 +90,8 @@ endif
 
 .DEFAULT_GOAL := all
 
-
+# Ensure build directory exists
+$(shell mkdir -p build)
 
 build/%.o: src/%.c
 	@echo "Compile $<"
@@ -125,6 +128,52 @@ cli: $(BIN_CLI)
 .PHONY: all
 all:: daemon cli overlay
 	@echo "MAKE: Complete"
+
+.PHONY: debug
+debug: CFLAGS = $(CFLAGS_DEBUG)
+debug: clean daemon cli
+	@echo "MAKE: Debug build complete"
+
+.PHONY: help
+help:
+	@echo "Argonone Daemon Makefile"
+	@echo ""
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Build targets:"
+	@echo "  all           Build daemon, CLI, and overlay (default)"
+	@echo "  daemon        Build the daemon and shutdown handler"
+	@echo "  cli           Build the CLI tool"
+	@echo "  overlay       Build the device tree overlay"
+	@echo "  debug         Build with debug symbols (-g -O0)"
+	@echo ""
+	@echo "Install targets (requires root):"
+	@echo "  install       Install all components"
+	@echo "  update        Update daemon, CLI, and service"
+	@echo "  uninstall     Remove all installed components"
+	@echo ""
+	@echo "Individual install targets:"
+	@echo "  install-daemon    Install the daemon"
+	@echo "  install-cli       Install the CLI tool"
+	@echo "  install-overlay   Install the device tree overlay"
+	@echo "  install-service   Install and enable the service"
+	@echo ""
+	@echo "Clean targets:"
+	@echo "  clean         Remove build artifacts"
+	@echo "  mrproper      Remove build artifacts and configuration"
+	@echo ""
+	@echo "Configuration variables:"
+	@echo "  CC            C compiler (default: gcc)"
+	@echo "  PREFIX        Install prefix (default: /usr)"
+	@echo "  BOOTLOC       Boot partition location (default: /boot)"
+	@echo "  LOGLEVEL      Log level 1-6 (default: 5)"
+	@echo ""
+	@echo "Optional build flags:"
+	@echo "  DISABLE_POWER_BUTTON_SUPPORT=1  Disable power button"
+	@echo "  USE_SYSFS_TEMP=<num>            Use sysfs for temperature"
+	@echo "  RUN_IN_FOREGROUND=1             Run in foreground mode"
+	@echo "  ENABLE_COMPILE_WARNINGS=1       Enable extra warnings"
+	@echo ""
 
 ifdef MAKE_OVERRIDES
 -include OS/$(DISTRO)/override.in
@@ -181,7 +230,7 @@ endif
 install:: install-daemon install-cli install-overlay install-service
 ifeq ($(shell if [ -f /usr/bin/argononed ]; then echo 1; fi), 1)
 	@echo -n "Removing old daemon ... "
-	@$(RM) /usr/bin/argononed 2>/dev/null&& echo "Successful" || { echo "Failed"; true; }
+	@$(RM) /usr/bin/argononed 2>/dev/null && echo "Successful" || { echo "Failed"; true; }
 endif
 	@echo "Install Complete"
 
@@ -189,7 +238,7 @@ endif
 update:: install-daemon install-cli install-service
 ifeq ($(shell if [ -f /usr/bin/argononed ]; then echo 1; fi), 1)
 	@echo -n "Removing old daemon ... "
-	@$(RM) /usr/bin/argononed 2>/dev/null&& echo "Successful" || { echo "Failed"; true; }
+	@$(RM) /usr/bin/argononed 2>/dev/null && echo "Successful" || { echo "Failed"; true; }
 endif
 	@echo "Update Complete"
 
@@ -214,9 +263,9 @@ endif
 	@echo -n "Remove overlay ... "
 	@$(RM) $(BOOTLOC)/overlays/argonone.dtbo 2>/dev/null && echo "Successful" || { echo "Failed"; }
 	@echo -n "Remove daemon ... "
-	@$(RM) /usr/*bin/argononed 2>/dev/null&& echo "Successful" || { echo "Failed"; true; }
+	@$(RM) /usr/*bin/argononed 2>/dev/null && echo "Successful" || { echo "Failed"; true; }
 	@echo -n "Remove cli-tool ... "
-	@$(RM) /usr/bin/argonone-cli 2>/dev/null&& echo "Successful" || { echo "Failed"; true; }
+	@$(RM) /usr/bin/argonone-cli 2>/dev/null && echo "Successful" || { echo "Failed"; true; }
 	@echo -n "Remove autocomplete for cli ... "
 	$(RM) /etc/bash_completion.d/argonone-cli 2>/dev/null && echo "Successful" || { echo "Failed"; true; }
 	@echo -n "Remove logrotate config ... "

@@ -34,13 +34,25 @@ SOFTWARE.
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
+#include <string.h>
 #include "argononed.common.h"
 #include "identapi.h"
 #include "event_timer.h"
 #include "argonone_shm.h"
 
+// Power button pulse timing constants (in milliseconds)
+#define POWER_BUTTON_SHORT_PRESS_MIN  19
+#define POWER_BUTTON_SHORT_PRESS_MAX  21
+#define POWER_BUTTON_LONG_PRESS_MIN   39
+#define POWER_BUTTON_LONG_PRESS_MAX   41
+
+// Helper macros for power button detection
+#define IS_SHORT_PRESS(ms) ((ms) >= POWER_BUTTON_SHORT_PRESS_MIN && (ms) <= POWER_BUTTON_SHORT_PRESS_MAX)
+#define IS_LONG_PRESS(ms)  ((ms) >= POWER_BUTTON_LONG_PRESS_MIN && (ms) <= POWER_BUTTON_LONG_PRESS_MAX)
+
 struct SHM_Data* ptr = NULL;            // Global Shared Memory Pointer
 Daemon_Conf Configuration = { 0 };      // Global Daemon Configuration
+static volatile sig_atomic_t shutdown_requested = 0;  // Signal-safe shutdown flag
 
 void TMR_Get_temp(size_t timer_id, void *user_data);
 void Set_FanSpeed(uint8_t fan_speed);
@@ -58,6 +70,12 @@ void Clean_Exit(int status)
     Set_FanSpeed(0);
     Set_FanSpeed(0xFF);
     log_message(LOG_DEBUG,"  Clean_Exit close_timers()"); close_timers();
+    // Properly unmap shared memory before unlinking
+    if (ptr != NULL) {
+        log_message(LOG_DEBUG,"  Clean_Exit munmap()");
+        munmap(ptr, SHM_SIZE);
+        ptr = NULL;
+    }
     log_message(LOG_DEBUG,"  Clean_Exit shm_unlink(SHM_FILE) return %d",shm_unlink(SHM_FILE));
     log_message(LOG_DEBUG,"  Clean_Exit unlink(LOCK_FILE) return %d", unlink(LOCK_FILE));
     log_message(LOG_INFO, "Daemon ready for shutdown");
@@ -76,21 +94,20 @@ void Clean_Exit(int status)
 void signal_handler(int sig){
     switch(sig){
         case SIGHUP:
+            // Note: log_message is not async-signal-safe, but SIGHUP is typically
+            // sent intentionally and we need the config reload functionality
             log_message(LOG_INFO + LOG_BOLD,"Received SIGHUP Hang up");
 #ifndef DISABLE_LEGACY_IPC
             reload_config_from_shm();
 #endif
             break;
         case SIGTERM:
-            log_message(LOG_INFO + LOG_BOLD,"Received SIGTERM Terminate");
-            Clean_Exit(0);
-            break;
         case SIGINT:
-            log_message(LOG_INFO + LOG_BOLD,"Received SIGINT Interupt");
-            Clean_Exit(0);
+            // Set flag for safe shutdown from main loop instead of calling exit()
+            shutdown_requested = 1;
             break;
         default:
-            log_message(LOG_INFO + LOG_BOLD,"Received Signal %s", strsignal(sig));
+            break;
     }
 }
 
@@ -126,8 +143,8 @@ void Set_FanSpeed(uint8_t fan_speed)
     unsigned long functions = 0;
 	if (file_i2c == 0)
     {
-        char filename[14]; // = (char*)"/dev/i2c-1  ";
-        snprintf(filename,14,"/dev/i2c-%d", Configuration.extra.bus);
+        char filename[20];
+        snprintf(filename, sizeof(filename), "/dev/i2c-%d", Configuration.extra.bus);
         log_message(LOG_INFO,"Attempt to open the i2c bus at %s", filename);
         if ((file_i2c = open(filename, O_RDWR)) < 0)
         {
@@ -215,8 +232,8 @@ int Get_CPU_Temp(uint32_t *CPU_Temperature, uint8_t command)
     };
     if (Configuration.extra.flags.USE_SYSFS)
     {
-        char filename[36];
-        snprintf(filename,36,"/sys/class/hwmon/hwmon%d/temp1_input", Configuration.extra.flags.SET_HWMON_NUM);
+        char filename[48];
+        snprintf(filename, sizeof(filename), "/sys/class/hwmon/hwmon%d/temp1_input", Configuration.extra.flags.SET_HWMON_NUM);
         log_message(LOG_DEBUG,"Open %s for temperature ",filename);
         fptemp = fopen(filename, "r");
         if (fptemp)
@@ -302,19 +319,34 @@ void TMR_Get_temp(size_t timer_id, void *user_data)
             Set_FanSpeed(0);
             break;
             case 1:
+            {
             if (CPU_Temp >= Configuration.configuration.thresholds[1]) fanspeed = 2;
-            if (CPU_Temp <= (uint8_t)(Configuration.configuration.thresholds[0] - Configuration.configuration.hysteresis)) fanspeed = 0;
+            // Safe subtraction to prevent underflow
+            uint8_t thresh0_hyst = (Configuration.configuration.hysteresis < Configuration.configuration.thresholds[0])
+                ? Configuration.configuration.thresholds[0] - Configuration.configuration.hysteresis : 0;
+            if (CPU_Temp <= thresh0_hyst) fanspeed = 0;
             Set_FanSpeed(Configuration.configuration.fanstages[0]);
             break;
+            }
             case 2:
+            {
             if (CPU_Temp >= Configuration.configuration.thresholds[2]) fanspeed = 3;
-            if (CPU_Temp <= (uint8_t)(Configuration.configuration.thresholds[1] - Configuration.configuration.hysteresis)) fanspeed = 1;
+            // Safe subtraction to prevent underflow
+            uint8_t thresh1_hyst = (Configuration.configuration.hysteresis < Configuration.configuration.thresholds[1])
+                ? Configuration.configuration.thresholds[1] - Configuration.configuration.hysteresis : 0;
+            if (CPU_Temp <= thresh1_hyst) fanspeed = 1;
             Set_FanSpeed(Configuration.configuration.fanstages[1]);
             break;
+            }
             case 3:
-            if (CPU_Temp <= (uint8_t)(Configuration.configuration.thresholds[2] - Configuration.configuration.hysteresis)) fanspeed = 2;
+            {
+            // Safe subtraction to prevent underflow
+            uint8_t thresh2_hyst = (Configuration.configuration.hysteresis < Configuration.configuration.thresholds[2])
+                ? Configuration.configuration.thresholds[2] - Configuration.configuration.hysteresis : 0;
+            if (CPU_Temp <= thresh2_hyst) fanspeed = 2;
             Set_FanSpeed(Configuration.configuration.fanstages[2]);
             break;
+            }
         }
         break;
         case 1: Set_FanSpeed(0); break; // OFF
@@ -351,9 +383,11 @@ int32_t monitor_device(uint32_t *Pulse_Time_ms)
 	int fd;
 	int ret = 0;
     if (E_Flag == -1 || Configuration.extra.flags.PB_DISABLE) { // E_Flag -1 disable attempts to open /dev/gpiochip0
-        while (1) {
-            usleep(10000);
+        while (!shutdown_requested) {
+            usleep(100000);  // Sleep 100ms, check for shutdown
         }
+        *Pulse_Time_ms = 0;
+        return 0;
     }
     *Pulse_Time_ms = 0; // Initialize to zero
 	fd = open("/dev/gpiochip0", 0);
@@ -370,7 +404,8 @@ int32_t monitor_device(uint32_t *Pulse_Time_ms)
 	req.lineoffset = 4;
 	req.handleflags = GPIOHANDLE_REQUEST_INPUT;
 	req.eventflags = GPIOEVENT_REQUEST_BOTH_EDGES;
-	strcpy(req.consumer_label, "argonone-powerbutton");
+	strncpy(req.consumer_label, "argonone-powerbutton", sizeof(req.consumer_label) - 1);
+	req.consumer_label[sizeof(req.consumer_label) - 1] = '\0';
 	ret = ioctl(fd, GPIO_GET_LINEEVENT_IOCTL, &req);
 	if (ret == -1) {
         if (E_Flag == 0)
@@ -390,8 +425,25 @@ int32_t monitor_device(uint32_t *Pulse_Time_ms)
     uint32_t Rtime = 0;
 	while (1) {
 		struct gpioevent_data event;
+		
+		// Check for shutdown signal before blocking read
+		if (shutdown_requested) {
+		    ret = 0;
+		    *Pulse_Time_ms = 0;
+		    goto exit_close_error;
+		}
+		
 		ret = read(req.fd, &event, sizeof(event));
 		if (ret == -1) {
+            // Check if interrupted by signal (e.g., SIGTERM/SIGINT)
+            if (errno == EINTR) {
+                if (shutdown_requested) {
+                    ret = 0;
+                    *Pulse_Time_ms = 0;
+                    goto exit_close_error;
+                }
+                continue;  // Retry if not shutting down
+            }
             if (E_Flag == 0)
             {
                 if (errno == EAGAIN) {
@@ -489,7 +541,7 @@ int daemonize(struct DTBO_Data *conf){
     close(lfp);
 
     // Setup signal handlers using sigaction for more reliable behavior
-    struct sigaction sa_ign = {0}, sa_main = {0}, sa_alrm = {0};
+    struct sigaction sa_ign = {0}, sa_main = {0}, sa_alrm = {0}, sa_term = {0};
 
     // Signals to ignore
     sa_ign.sa_handler = SIG_IGN;
@@ -507,6 +559,7 @@ int daemonize(struct DTBO_Data *conf){
     sigaction(SIGALRM, &sa_alrm, NULL);
 
     // Main signal handler with SA_RESTART to automatically restart interrupted syscalls
+    // Used for signals that don't require immediate response
     sa_main.sa_handler = signal_handler;
     sigemptyset(&sa_main.sa_mask);
     sa_main.sa_flags = SA_RESTART;
@@ -515,8 +568,15 @@ int daemonize(struct DTBO_Data *conf){
     sigaction(SIGUSR2, &sa_main, NULL);
     sigaction(SIGURG, &sa_main, NULL);
     sigaction(SIGHUP, &sa_main, NULL);
-    sigaction(SIGINT, &sa_main, NULL);
-    sigaction(SIGTERM, &sa_main, NULL);
+
+    // Termination signal handler WITHOUT SA_RESTART
+    // This allows blocking syscalls (like read() in monitor_device) to return
+    // with EINTR so we can check shutdown_requested and exit gracefully
+    sa_term.sa_handler = signal_handler;
+    sigemptyset(&sa_term.sa_mask);
+    sa_term.sa_flags = 0;  // No SA_RESTART - allows syscalls to be interrupted
+    sigaction(SIGINT, &sa_term, NULL);
+    sigaction(SIGTERM, &sa_term, NULL);
 
     return 0;
 }
@@ -563,15 +623,19 @@ int main(int argc,char **argv)
     } else {
 
         float frev = 1.0f + (Pirev.REVISION / 10.0f);
-        char memstr[11];
-        if (IDENTAPI_GET_int(Pirev, IDENTAPI_MEM) > 512) sprintf(memstr,"%dGB",IDENTAPI_GET_int(Pirev, IDENTAPI_MEM) / 1024);
-        else sprintf(memstr,"%dMB",IDENTAPI_GET_int(Pirev, IDENTAPI_MEM));
+        char memstr[16];
+        if (IDENTAPI_GET_int(Pirev, IDENTAPI_MEM) > 512) snprintf(memstr, sizeof(memstr), "%dGB", IDENTAPI_GET_int(Pirev, IDENTAPI_MEM) / 1024);
+        else snprintf(memstr, sizeof(memstr), "%dMB", IDENTAPI_GET_int(Pirev, IDENTAPI_MEM));
         log_message(LOG_INFO, "Detected RPI MODEL %s %s rev %1.1f", IDENTAPI_GET_str(Pirev, IDENTAPI_TYPE), memstr, frev);
     }
     umask(0);
     log_message(LOG_INFO + LOG_BOLD, "Begin Initalizing shared memory");
-	int shm_fd = shm_open(SHM_FILE, O_CREAT | O_RDWR, 0666);
-	ftruncate(shm_fd, SHM_SIZE);
+	int shm_fd = shm_open(SHM_FILE, O_CREAT | O_RDWR, 0660);
+	if (ftruncate(shm_fd, SHM_SIZE) == -1) {
+		log_message(LOG_FATAL, "Failed to set shared memory size: %s", strerror(errno));
+		close(shm_fd);
+		exit(1);
+	}
     ptr = mmap(0, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 	if (ptr == MAP_FAILED) {
 		log_message(LOG_FATAL, "Shared memory map error");
@@ -606,22 +670,27 @@ int main(int argc,char **argv)
         uint32_t count = 0;
         do
         {
+            // Check for shutdown signal
+            if (shutdown_requested) {
+                log_message(LOG_INFO + LOG_BOLD, "Shutdown signal received");
+                Clean_Exit(0);
+            }
             if (monitor_device(&count) == 0)
             {
                 log_message(LOG_DEBUG, "Pulse received %dms", count);
-                if ((count >= 19 && count <= 21) || (count >= 39 && count <= 41)) break;
+                if (IS_SHORT_PRESS(count) || IS_LONG_PRESS(count)) break;
                 sleep(1);
             }
             // monitor_device has produced and error
             usleep(10000);  // Shouldn't be reached but prevent overloading CPU
         } while (1);
-        if (count >= 19 && count <= 21)
+        if (IS_SHORT_PRESS(count))
         {
             log_message(LOG_DEBUG, "EXEC REBOOT");
             sync();
             system("/sbin/reboot");
         }
-        if (count >= 39 && count <= 41)
+        if (IS_LONG_PRESS(count))
         {
             log_message(LOG_DEBUG, "EXEC SHUTDOWN");
             sync();
@@ -629,10 +698,11 @@ int main(int argc,char **argv)
         }
     } else {
         log_message(LOG_INFO + LOG_BOLD,"Daemon Ready");
-        for(;;)
+        while (!shutdown_requested)
         {
             sleep(1); // Main loop to sleep
         }
+        log_message(LOG_INFO + LOG_BOLD, "Shutdown signal received");
     }
 
     Clean_Exit(0);

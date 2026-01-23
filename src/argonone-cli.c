@@ -336,7 +336,7 @@ int Send_Request(struct SHM_Data* ptr, int pid)
                 return -1;
             }
         }
-        msync(ptr,13,MS_SYNC);
+        msync(ptr, SHM_SIZE, MS_SYNC);
     }
     if (arguments.debug) fprintf (stderr, "DEBUG:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");// < 10 ? STATUS_STR[*status] : "Unknown");
     if (arguments.verbose && !arguments.debug) fprintf (stderr, "INFO:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");
@@ -378,7 +378,7 @@ int Send_Reset(struct SHM_Data* ptr, int pid)
                 return -1;
             }
         }
-        msync(ptr,13,MS_SYNC);
+        msync(ptr, SHM_SIZE, MS_SYNC);
     }
     if (arguments.debug) fprintf (stderr, "DEBUG:  Status  %02x:%s\n",ptr->status, ptr->status < 10 ? STATUS_STR[ptr->status] : "Unknown");// < 10 ? STATUS_STR[*status] : "Unknown");
    return 0;
@@ -398,7 +398,7 @@ int main (int argc, char** argv)
     arguments.debug = 1;
     #endif
     struct SHM_Data* ptr;
-    int shm_fd =  shm_open(SHM_FILE, O_RDWR, 0664);
+    int shm_fd =  shm_open(SHM_FILE, O_RDWR, 0660);
     if (shm_fd == -1)
     {
       fprintf(stderr, "ERROR:  argononed is not running, or has no shared memory access.\n");

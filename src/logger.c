@@ -83,8 +83,9 @@ void log_message(Log_Level l, const char *message, ...)
     {
         time_t now;
         time(&now);
-        char * date = ctime(&now);
-        date[strlen(date) - 1] = '\0';
+        char date[26];
+        ctime_r(&now, date);
+        date[strlen(date) - 1] = '\0';  // Remove trailing newline
         if (Configuration.colour)
         {
             fprintf(logfile,"%s [\e[%dm %s \e[0m] ", date, LOG_COLOUR[level - 1], LOG_LEVEL_STR[level]);

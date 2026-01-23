@@ -25,6 +25,7 @@ SOFTWARE.
 #include "argononed.common.h"
 
 #include <argp.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -47,7 +48,8 @@ int Init_Configuration(struct DTBO_Data* conf)
       .thresholds = { 55, 60, 65 },
       .hysteresis = 3
   };
-  memset(&conf->configuration, 0, sizeof(struct DTBO_Data));
+  // Clear the configuration struct (not the entire DTBO_Data struct)
+  memset(&conf->configuration, 0, sizeof(struct DTBO_Config));
   memcpy(&conf->configuration, &defaults, sizeof(struct DTBO_Config));
 
   conf->Log_Level = LOG_LEVEL;
@@ -271,10 +273,22 @@ Conf_id conf_map[] = {
     { "loglevel", CFG_LOGLEVEL },
 };
 
+/**
+ * Remove whitespace from string in-place
+ * @param str String to clean (modified in place)
+ */
 static void strclean(char* str)
 {
+    if (str == NULL) return;
     char* d = str;
-    while((*(d+=!isspace(*str++)) = *str));
+    const char* s = str;
+    while (*s) {
+        if (!isspace((unsigned char)*s)) {
+            *d++ = *s;
+        }
+        s++;
+    }
+    *d = '\0';
 }
 
 static int findit(const char text[], int offset) {
@@ -289,13 +303,14 @@ static int get_vals(char text[], unsigned char* val, int max_elements, int offse
 {
     int count = 0;
     char *token = 0;
-    token = strtok(text, ",");
+    char *saveptr = NULL;
+    token = strtok_r(text, ",", &saveptr);
     while (token)
     {
         count++;
         if (0 && offset >= 0) printf("ERROR:  Bad value %s line %d\n", token, offset);
         val[count - 1] = (unsigned char)atoi(token);
-        token = strtok(NULL, ",");
+        token = strtok_r(NULL, ",", &saveptr);
         if (count >= max_elements) return count;
     }
     return count;
@@ -515,7 +530,10 @@ static struct argp argp = { options, parse_opt, NULL, doc, 0, 0, 0 };
 int Parse_Command_Line_Arguments(int argc, char **argv, struct DTBO_Data* args, struct DTBO_Data* conf)
 {
     memcpy(args, conf, sizeof(struct DTBO_Data));
-    memset(&args->configuration, 255, sizeof(struct DTBO_Config));
+    // Initialize configuration values to 0xFF to mark them as "unset"
+    // This allows distinguishing between "not provided" (0xFF) and "set to 0"
+    // during configuration merging in Check_Configuration()
+    memset(&args->configuration, 0xFF, sizeof(struct DTBO_Config));
     if (argc == 1) return 0;
     return argp_parse (&argp, argc, argv, 0, 0, args);
 }

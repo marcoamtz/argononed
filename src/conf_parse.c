@@ -32,10 +32,22 @@ Conf_id conf_map[] = {
     { "loglevel", CFG_LOGLEVEL },
 };
 
+/**
+ * Remove whitespace from string in-place
+ * @param str String to clean (modified in place)
+ */
 void strclean(char* str)
 {
+    if (str == NULL) return;
     char* d = str;
-    while(*(d+=!isspace(*str++)) = *str);
+    const char* s = str;
+    while (*s) {
+        if (!isspace((unsigned char)*s)) {
+            *d++ = *s;
+        }
+        s++;
+    }
+    *d = '\0';
 }
 
 int findit(const char text[], int offset) {
@@ -50,13 +62,14 @@ int get_vals(char text[], unsigned char* val, int max_elements, int offset)
 {
     int count = 0;
     char *token = 0;
-    token = strtok(text, ",");
+    char *saveptr = NULL;
+    token = strtok_r(text, ",", &saveptr);
     while (token)
     {
         count++;
         //if ( ) printf("ERROR:  Bad value %s line %d\n", token, offset);
         val[count - 1] = (unsigned char)atoi(token);
-        token = strtok(NULL, ",");
+        token = strtok_r(NULL, ",", &saveptr);
         if (count >= max_elements) return count;
     }
     return count;

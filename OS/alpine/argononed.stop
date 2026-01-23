@@ -1,2 +1,2 @@
-#!/bin/bash
-[[ -f /tmp/reboot ]] || /usr/sbin/shutdown-argonone
+#!/bin/sh
+[ -f /tmp/reboot ] || /usr/sbin/shutdown-argonone

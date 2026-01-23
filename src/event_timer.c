@@ -47,6 +47,7 @@ struct tmr_table
 static void *_timer_thread(void *args);
 static pthread_t tmr_pthread;
 static struct tmr_table *tmr_table_pointer = NULL;
+static pthread_mutex_t timer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int initialize_timers()
 {
@@ -95,11 +96,17 @@ size_t start_timer_long (time_t interval, time_handler handler, tmr_types type, 
 
     new_value.it_interval.tv_nsec= 0;
 
-    timerfd_settime(new_node->fd, 0, &new_value, NULL);
+    if (timerfd_settime(new_node->fd, 0, &new_value, NULL) == -1) {
+        close(new_node->fd);
+        free(new_node);
+        return 0;
+    }
 
     /*Inserting the timer node into the list*/
+    pthread_mutex_lock(&timer_mutex);
     new_node->next = tmr_table_pointer;
     tmr_table_pointer = new_node;
+    pthread_mutex_unlock(&timer_mutex);
 
     return (size_t)new_node;
 }
@@ -140,11 +147,17 @@ size_t start_timer(time_t interval, time_handler handler, tmr_types type, void *
 
     new_value.it_interval.tv_sec= 0;
 
-    timerfd_settime(new_node->fd, 0, &new_value, NULL);
+    if (timerfd_settime(new_node->fd, 0, &new_value, NULL) == -1) {
+        close(new_node->fd);
+        free(new_node);
+        return 0;
+    }
 
     /*Inserting the timer node into the list*/
+    pthread_mutex_lock(&timer_mutex);
     new_node->next = tmr_table_pointer;
     tmr_table_pointer = new_node;
+    pthread_mutex_unlock(&timer_mutex);
 
     return (size_t)new_node;
 }
@@ -156,6 +169,8 @@ void stop_timer(size_t timer_id)
 
     if (node == NULL) return;
 
+    pthread_mutex_lock(&timer_mutex);
+    
     close(node->fd);
 
     if(node == tmr_table_pointer)
@@ -172,6 +187,9 @@ void stop_timer(size_t timer_id)
             tmp->next = tmp->next->next;
         }
     }
+    
+    pthread_mutex_unlock(&timer_mutex);
+    
     if(node) free(node);
 }
 
@@ -211,6 +229,8 @@ void *_timer_thread(void *args)
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
         iMaxCount = 0;
+        
+        pthread_mutex_lock(&timer_mutex);
         tmp = tmr_table_pointer;
 
         memset(ufds, 0, sizeof(struct pollfd)*MAX_TIMER_COUNT);
@@ -222,6 +242,8 @@ void *_timer_thread(void *args)
 
             tmp = tmp->next;
         }
+        pthread_mutex_unlock(&timer_mutex);
+        
         read_fds = poll(ufds, iMaxCount, 100);
 
         if (read_fds <= 0) continue;
@@ -234,7 +256,9 @@ void *_timer_thread(void *args)
 
                 if (s != sizeof(uint64_t)) continue;
 
+                pthread_mutex_lock(&timer_mutex);
                 tmp = _get_timer_from_fd(ufds[i].fd);
+                pthread_mutex_unlock(&timer_mutex);
 
                 if(tmp && tmp->callback) tmp->callback((size_t)tmp, tmp->user_data);
             }
