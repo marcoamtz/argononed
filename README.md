@@ -134,7 +134,7 @@ The daemon now accepts command line arguments.
       --temps=VALUE          Set Temperature values
       --conf=FILENAME        load config
       --forceflag=VALUE      Force flags to VALUE
-  -F, --forground            Run in Foreground
+  -F, --foreground           Run in Foreground (recommended for systemd)
   -l, --loglevel=VALUE       Set Log level
   -c, --colour               Run in Foreground with colour
       --dumpconf             Dump build config
@@ -179,7 +179,7 @@ The log levels go in this order: NONE, FATAL, CRITICAL, ERROR, WARNING, INFO, DE
 
  **DISABLE_POWERBUTTON** *or* **FLAG 0x01** if you don't have `/dev/gpiochip0` or you don't want to use the power button then use this flag.  Remember that the Force shutdown >= 5 second long press will still work.
 
- **RUN_IN_FOREGROUND** *or* **FLAG 0x02** if you need the daemon to always run in the foreground this flag will skip the forking to the background and cause the daemon to log to the console.
+ **RUN_IN_FOREGROUND** *or* **FLAG 0x02** if you need the daemon to always run in the foreground this flag will skip the forking to the background and cause the daemon to log to the console. This is the recommended mode when using systemd, as the service file uses `Type=simple` with the `-F` flag for proper process management.
 
  **USE_SYSFS_TEMP** *or* **FLAG 0x04** If your system doesn't have `/dev/vcio` you'll need to use the sysfs temperature sensor set.
 
@@ -209,6 +209,8 @@ Yes an off switch, maybe you want to do something and you need to be sure the fa
 ## `argonone-cli` tool
 
 The `argonone-cli` command line tool lets you change setting on the fly. It communicates with shared memory of the daemon, so the daemon must be running for this tool to be of use.
+
+**Note:** The CLI tool requires root privileges (use `sudo`) to access shared memory. This is a security measure to prevent unauthorized access to daemon settings.
 
 ## Setting schedules
 
