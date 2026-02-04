@@ -18,7 +18,7 @@ check_distro() {
             ;;
         *rpios*)
             VERSION_ID="`(awk -F"=" '$1=="VERSION_ID"{print $2}' /etc/os-release | sed 's/\"//g')`"
-            [ "xVERSION_ID" = "x" ] && continue
+            [ "x$VERSION_ID" = "x" ] && continue
             [ $VERSION_ID -lt 12 ] && distro="rpios-legacy" 
             ;;
         *gentoo*) distro='gentoo';;
@@ -28,7 +28,7 @@ check_distro() {
         *manjaro*) distro='manjaro';;
         *manjaro-arm*) distro='manjaro';;
         *opensuse-leap*) distro='opensuse-leap';;
-        *opensuse-microos*) distro='opensuse-micoos';;
+        *opensuse-microos*) distro='opensuse-microos';;
         *opensuse-tumbleweed*) distro='opensuse-tumbleweed';;
         *opensuse*) distro='opensuse';;
         *openwrt*) distro='openwrt';;

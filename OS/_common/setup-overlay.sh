@@ -2,6 +2,17 @@
 TEST_FOR_E=`echo -e 'E'`
 [ "$TEST_FOR_E" = '-e E' ] && ECHO="echo" || ECHO="echo -e"
 
+# Portable sed in-place edit function (works on BSD/macOS and GNU/Linux)
+sed_inplace() {
+    if sed --version 2>/dev/null | grep -q GNU; then
+        # GNU sed
+        sed -i "$@"
+    else
+        # BSD/macOS sed requires backup extension
+        sed -i '' "$@"
+    fi
+}
+
 [ $# -eq 0 ] && FILE=/boot/config.txt || FILE=$1
 [ -w "$FILE" ] || { $ECHO "  ERROR Cannot Write to ${FILE} unable to continue"; exit 1; }
 
@@ -15,7 +26,7 @@ cp $FILE $FILE.backup
 $ECHO -n "  insert overlay into ${FILE} ... "
 if [ `grep -i "^\[${SECTION}\]" $FILE >/dev/null 2>&1` ]
 then
-    sed -i "/^\[${SECTION}\][^\n]*/I,\$!b;//{x;//p;g};//!H;\$!d;x;s//&\ndtoverlay=argonone/" $FILE && { $ECHO "DONE"; exit 0; } || { $ECHO "Failed"; exit 1; }
+    sed_inplace "/^\[${SECTION}\][^\n]*/I,\$!b;//{x;//p;g};//!H;\$!d;x;s//&\ndtoverlay=argonone/" $FILE && { $ECHO "DONE"; exit 0; } || { $ECHO "Failed"; exit 1; }
 else
     $ECHO "[${SECTION}]\ndtoverlay=argonone" >> $FILE && { $ECHO "DONE"; exit 0; } || { $ECHO "Failed"; exit 1; }
 fi

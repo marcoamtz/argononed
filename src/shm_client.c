@@ -23,7 +23,11 @@ SOFTWARE.
 */
 
 #include <errno.h>
+#include <time.h>
 #include "shm_client.h"
+
+// Default timeout for IPC operations (5 seconds)
+#define IPC_TIMEOUT_MS 5000
 
 /**
  * Send Request and wait for reply
@@ -39,13 +43,26 @@ int Send_Request(ArgonMem* ar_ptr)
       return kill(ar_ptr->daemon_pid, 1);
     }
     uint8_t last_state = 0;
-     if (ar_ptr->memory->status != REQ_WAIT)
+    if (ar_ptr->memory->status != REQ_WAIT)
     {
-        return 1;
+        return EBUSY;
     }
     ar_ptr->memory->status = REQ_RDY;
-    for(;ar_ptr->memory->status != REQ_WAIT;)
+    
+    // Add timeout to prevent indefinite hangs
+    struct timespec start, now;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    
+    while (ar_ptr->memory->status != REQ_WAIT)
     {
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        long elapsed_ms = (now.tv_sec - start.tv_sec) * 1000 + 
+                          (now.tv_nsec - start.tv_nsec) / 1000000;
+        if (elapsed_ms > IPC_TIMEOUT_MS)
+        {
+            return ETIMEDOUT;
+        }
+        
         if (last_state != ar_ptr->memory->status)
         {
             last_state = ar_ptr->memory->status;
@@ -54,10 +71,11 @@ int Send_Request(ArgonMem* ar_ptr)
                 return -1;
             }
         }
-        msync(ar_ptr->memory,13,MS_SYNC);
+        msync(ar_ptr->memory, SHM_SIZE, MS_SYNC);
+        usleep(1000);  // Small delay to reduce CPU usage
     }
     ar_ptr->memory->status = REQ_CLR;
-   return 0;
+    return 0;
 }
 
 /**
@@ -76,22 +94,36 @@ int Send_Reset(ArgonMem* ar_ptr)
     uint8_t last_state = 0;
     if (ar_ptr->memory->status != REQ_WAIT)
     {
-        return 1;
+        return EBUSY;
     }
     ar_ptr->memory->status = REQ_CLR;
-    for(;ar_ptr->memory->status != REQ_WAIT;)
+    
+    // Add timeout to prevent indefinite hangs
+    struct timespec start, now;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    
+    while (ar_ptr->memory->status != REQ_WAIT)
     {
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        long elapsed_ms = (now.tv_sec - start.tv_sec) * 1000 + 
+                          (now.tv_nsec - start.tv_nsec) / 1000000;
+        if (elapsed_ms > IPC_TIMEOUT_MS)
+        {
+            return ETIMEDOUT;
+        }
+        
         if (last_state != ar_ptr->memory->status)
         {
-           last_state = ar_ptr->memory->status;
+            last_state = ar_ptr->memory->status;
             if (ar_ptr->memory->status == REQ_ERR)
             {
                 return -1;
             }
         }
-        msync(ar_ptr->memory,13,MS_SYNC);
+        msync(ar_ptr->memory, SHM_SIZE, MS_SYNC);
+        usleep(1000);  // Small delay to reduce CPU usage
     }
-   return 0;
+    return 0;
 }
 /**
  * Send Reset Statitsics Request and wait for reply
@@ -99,7 +131,7 @@ int Send_Reset(ArgonMem* ar_ptr)
  * \param ar_ptr Pointer to ArgonMem Struct
  * \return 0 on success
  */
-int Send_Reset_Statitsics(ArgonMem* ar_ptr)
+int Send_Reset_Statistics(ArgonMem* ar_ptr)
 {
     if (ar_ptr == NULL) return ENOTCONN;
     if (ar_ptr->daemon_pid != 0)
@@ -113,19 +145,39 @@ int Send_Reset_Statitsics(ArgonMem* ar_ptr)
     }
     ar_ptr->memory->req_flags |= REQ_FLAG_STAT;
     ar_ptr->memory->status = REQ_CLR;
-    for(;ar_ptr->memory->status != REQ_WAIT;)
+    
+    // Add timeout to prevent indefinite hangs
+    struct timespec start, now;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    
+    while (ar_ptr->memory->status != REQ_WAIT)
     {
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        long elapsed_ms = (now.tv_sec - start.tv_sec) * 1000 + 
+                          (now.tv_nsec - start.tv_nsec) / 1000000;
+        if (elapsed_ms > IPC_TIMEOUT_MS)
+        {
+            return ETIMEDOUT;
+        }
+        
         if (last_state != ar_ptr->memory->status)
         {
-           last_state = ar_ptr->memory->status;
+            last_state = ar_ptr->memory->status;
             if (ar_ptr->memory->status == REQ_ERR)
             {
                 return EAGAIN;
             }
         }
-        msync(ar_ptr->memory,13,MS_SYNC);
+        msync(ar_ptr->memory, SHM_SIZE, MS_SYNC);
+        usleep(1000);  // Small delay to reduce CPU usage
     }
-   return 0;
+    return 0;
+}
+
+// Keep old name for backward compatibility
+int Send_Reset_Statitsics(ArgonMem* ar_ptr)
+{
+    return Send_Reset_Statistics(ar_ptr);
 }
 
 /**
@@ -269,7 +321,7 @@ int Open_ArgonMem(ArgonMem* ar_ptr)
           return ENODEV;
       }
     }
-    ar_ptr->shm_fd = shm_open(SHM_FILE, O_RDWR, 0664);
+    ar_ptr->shm_fd = shm_open(SHM_FILE, O_RDWR, 0660);
     if (ar_ptr->shm_fd == -1) return errno;
     if (ftruncate(ar_ptr->shm_fd, SHM_SIZE) == -1) {
         int saved_errno = errno;
