@@ -48,7 +48,36 @@ SOFTWARE.
 #include <time.h>
 #include <ctype.h>
 #include <argp.h>
+#include <limits.h>
 #include "argononed.common.h"
+
+/**
+ * \brief Safely convert string to long with range validation
+ */
+static int safe_strtol(const char *str, long *result, long min_val, long max_val)
+{
+    if (str == NULL || result == NULL) return -1;
+    char *endptr;
+    errno = 0;
+    long val = strtol(str, &endptr, 10);
+    if (errno == ERANGE || val < min_val || val > max_val) return -1;
+    if (endptr == str) return -1;
+    while (isspace((unsigned char)*endptr)) endptr++;
+    if (*endptr != '\0') return -1;
+    *result = val;
+    return 0;
+}
+
+/**
+ * \brief Safely convert string to uint8_t with validation
+ */
+static int safe_strtou8(const char *str, uint8_t *result, uint8_t max_val)
+{
+    long val;
+    if (safe_strtol(str, &val, 0, max_val) != 0) return -1;
+    *result = (uint8_t)val;
+    return 0;
+}
 
 char* RUN_STATE_STR[4] = {"AUTO", "OFF", "MANUAL", "COOLDOWN"};
 char* STATUS_STR[11] = {"Waiting for request",
@@ -193,9 +222,12 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
       break;
     case 'f':
     {
-      int fanspeed = atoi(arg);
+      uint8_t fanspeed = 0;
+      if (safe_strtou8(arg, &fanspeed, FAN_SPEED_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid fan speed '%s'\n", arg);
+        argp_usage(state);
+      }
       if (fanspeed > 0 && fanspeed < 10) fanspeed = 10;  // Minimum active fan speed
-      if (fanspeed > FAN_SPEED_MAX) fanspeed = FAN_SPEED_MAX;
       arguments->fanoverride = fanspeed;
       break;
     }
@@ -210,7 +242,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
       }
       mode_switch = 4;
-      arguments->Schedule->fanstages[0] = atoi(arg);
+      if (safe_strtou8(arg, &arguments->Schedule->fanstages[0], FAN_SPEED_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid fan0 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
 
     case 4:
@@ -221,7 +256,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
       }
       mode_switch = 4;
-      arguments->Schedule->fanstages[1] = atoi(arg);
+      if (safe_strtou8(arg, &arguments->Schedule->fanstages[1], FAN_SPEED_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid fan1 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
 
     case 5:
@@ -232,7 +270,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
       }
       mode_switch = 4;
-      arguments->Schedule->fanstages[2] = atoi(arg);
+      if (safe_strtou8(arg, &arguments->Schedule->fanstages[2], FAN_SPEED_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid fan2 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
 
     case 6:
@@ -243,7 +284,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
       }
       mode_switch = 4;
-      arguments->Schedule->thresholds[0] = atoi(arg);
+      if (safe_strtou8(arg, &arguments->Schedule->thresholds[0], TEMPERATURE_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid temp0 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
 
     case 7:
@@ -254,7 +298,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
       }
       mode_switch = 4;
-      arguments->Schedule->thresholds[1] = atoi(arg);
+      if (safe_strtou8(arg, &arguments->Schedule->thresholds[1], TEMPERATURE_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid temp1 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
 
     case 8:
@@ -265,7 +312,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
       }
       mode_switch = 4;
-      arguments->Schedule->thresholds[2] = atoi(arg);
+      if (safe_strtou8(arg, &arguments->Schedule->thresholds[2], TEMPERATURE_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid temp2 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
 
     case 9:
@@ -276,7 +326,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
       }
       mode_switch = 4;
-      arguments->Schedule->hysteresis = atoi(arg);
+      if (safe_strtou8(arg, &arguments->Schedule->hysteresis, HYSTERESIS_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid hysteresis value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
 
     case ARGP_KEY_END:
@@ -404,10 +457,15 @@ int main (int argc, char** argv)
       fprintf(stderr, "ERROR:  argononed is not running, or has no shared memory access.\n");
       exit(1);
     }
-    ftruncate(shm_fd, SHM_SIZE);
+    if (ftruncate(shm_fd, SHM_SIZE) == -1) {
+        fprintf(stderr, "ERROR:  Cannot set shared memory size\n");
+        close(shm_fd);
+        exit(1);
+    }
     ptr = mmap(0, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (ptr == MAP_FAILED) {
         fprintf(stderr, "ERROR:  Shared memory map error\n");
+        close(shm_fd);
         exit(1);
     }
     arguments.Schedule = &ptr->config;

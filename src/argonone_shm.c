@@ -83,9 +83,21 @@ void reset_shm()
  */
 int reload_config_from_shm()
 {
+    // Copy all values from shared memory to local variables first to prevent TOCTOU
+    struct DTBO_Config local_config;
+    uint8_t local_fanmode;
+    uint8_t local_temp_target;
+    uint8_t local_fanspeed_override;
+
+    memcpy(&local_config, &ptr->config, sizeof(struct DTBO_Config));
+    local_fanmode = ptr->fanmode;
+    local_temp_target = ptr->temperature_target;
+    local_fanspeed_override = ptr->fanspeed_Override;
+
+    // Now validate the local copies
     for (int i = 0; i < 3; i++)
     {
-        if (ptr->config.thresholds[i] < TEMPERATURE_MIN)
+        if (local_config.thresholds[i] < TEMPERATURE_MIN)
         {
             log_message(LOG_WARN,"Shared Memory contains bad value at threshold %d ABORTING reload", i);
             reset_shm();
@@ -94,35 +106,37 @@ int reload_config_from_shm()
     }
     for (int i = 0; i < 3; i++)
     {
-        if (ptr->config.fanstages[i] > FAN_SPEED_MAX)
+        if (local_config.fanstages[i] > FAN_SPEED_MAX)
         {
             log_message(LOG_WARN,"Shared Memory contains bad value at fanstage %d ABORTING reload", i);
             reset_shm();
             return -1;
         }
     }
+
+    // Apply validated values to configuration
     memcpy(&Configuration.configuration.fanstages,
-        ptr->config.fanstages,
+        local_config.fanstages,
         sizeof(Configuration.configuration.fanstages)
         );
     memcpy(&Configuration.configuration.thresholds,
-        ptr->config.thresholds,
+        local_config.thresholds,
         sizeof(Configuration.configuration.thresholds)
         );
-    if (ptr->config.hysteresis > HYSTERESIS_MAX)
+    if (local_config.hysteresis > HYSTERESIS_MAX)
     {
         log_message(LOG_WARN,"Shared Memory contains bad value at hysteresis FORCING to %d", HYSTERESIS_MAX);
-        ptr->config.hysteresis = HYSTERESIS_MAX;
+        local_config.hysteresis = HYSTERESIS_MAX;
     }
-    Configuration.configuration.hysteresis = ptr->config.hysteresis;
-    if (ptr->fanmode > FAN_MODE_MAX)
+    Configuration.configuration.hysteresis = local_config.hysteresis;
+    if (local_fanmode > FAN_MODE_MAX)
     {
         log_message(LOG_WARN,"Shared Memory contains bad value at fanmode FORCING to AUTO");
-        ptr->fanmode = 0;
+        local_fanmode = 0;
     }
-    Configuration.runstate = ptr->fanmode;
-    Configuration.temperature_target = ptr->temperature_target >= TEMPERATURE_MIN ? ptr->temperature_target : TEMPERATURE_MIN;
-    Configuration.fanspeed_Override   = ptr->fanspeed_Override <= FAN_SPEED_MAX ? ptr->fanspeed_Override : FAN_SPEED_MAX;
+    Configuration.runstate = local_fanmode;
+    Configuration.temperature_target = local_temp_target >= TEMPERATURE_MIN ? local_temp_target : TEMPERATURE_MIN;
+    Configuration.fanspeed_Override   = local_fanspeed_override <= FAN_SPEED_MAX ? local_fanspeed_override : FAN_SPEED_MAX;
     Configuration_log(&Configuration);
     //log_message(LOG_INFO,"Hysteresis set to %d",hysteresis);
     //log_message(LOG_INFO,"Fan Speeds set to %d%% %d%% %d%%",fanstage[0],fanstage[1],fanstage[2]);

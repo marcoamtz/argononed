@@ -1,4 +1,4 @@
-FROM arm32v6/alpine:latest
+FROM arm32v6/alpine:3.19
 
 RUN apk add gcc dtc git argp-standalone bash build-base linux-headers && git clone https://gitlab.com/DarkElvenAngel/argononed.git && mkdir /output
 

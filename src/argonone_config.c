@@ -290,12 +290,14 @@ int Read_DeviceTree_Data(struct DTBO_Data* conf)
         if (fp)
         {
             char buffer[MAX_LEN];
-            fgets(buffer, MAX_LEN, fp);
-            if (strcmp(buffer, "Argon Forty Controllable Fan Hat") == 0)
+            if (fgets(buffer, MAX_LEN, fp) != NULL)
             {
-                log_message(LOG_INFO, "Argon Artik Hat Detected");
-            } else {
-                log_message(LOG_DEBUG, "Hat detected %s", buffer);
+                if (strcmp(buffer, "Argon Forty Controllable Fan Hat") == 0)
+                {
+                    log_message(LOG_INFO, "Argon Artik Hat Detected");
+                } else {
+                    log_message(LOG_DEBUG, "Hat detected %s", buffer);
+                }
             }
             fclose(fp);
         }
@@ -421,7 +423,7 @@ int Read_Configuration_File(const char* filename, struct DTBO_Data* conf)
         }
         strclean(buffer);
         buffer[strcspn(buffer, "=")] = ' ';
-        sscanf(buffer,"%s %s",key, value);
+        sscanf(buffer,"%255s %255s",key, value);
         if ((property = findit(key,line)) == -1) continue;
 
         switch (property)

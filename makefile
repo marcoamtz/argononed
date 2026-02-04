@@ -16,6 +16,9 @@ CFLAGS       = -Wall -s -O3
 ifndef DISABLE_WERROR
 CFLAGS      += -Werror
 endif
+# Security hardening flags
+CFLAGS      += -fstack-protector-strong
+CFLAGS      += -D_FORTIFY_SOURCE=2
 CFLAGS_DEBUG = -Wall -g -O0 -DDEBUG
 LFLAGS       = -lpthread -lrt
 LFLAGS3      = -lrt
@@ -276,7 +279,10 @@ endif
 	$(RM) /etc/logrotate.d/argononed 2>/dev/null && echo "Successful" || { echo "Failed"; true; }
 	@echo "Remove dtoverlay=argonone from $(BOOTLOC)/config.txt"
 	@cp $(BOOTLOC)/config.txt $(BOOTLOC)/config.argonone.backup
-	@sed -i '/dtoverlay=argonone/d' $(BOOTLOC)/config.txt
+	@case "$$(uname -s)" in \
+		*BSD*|DragonFly) sed -i '' '/dtoverlay=argonone/d' $(BOOTLOC)/config.txt ;; \
+		*) sed -i '/dtoverlay=argonone/d' $(BOOTLOC)/config.txt ;; \
+	esac
 	@echo "Uninstall Complete"
 endif
 

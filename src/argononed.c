@@ -31,6 +31,7 @@ SOFTWARE.
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <sys/reboot.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
@@ -51,9 +52,13 @@ SOFTWARE.
 #define IS_SHORT_PRESS(ms) ((ms) >= POWER_BUTTON_SHORT_PRESS_MIN && (ms) <= POWER_BUTTON_SHORT_PRESS_MAX)
 #define IS_LONG_PRESS(ms)  ((ms) >= POWER_BUTTON_LONG_PRESS_MIN && (ms) <= POWER_BUTTON_LONG_PRESS_MAX)
 
+// I2C address for Argon fan controller
+#define ARGON_I2C_ADDR 0x1a
+
 struct SHM_Data* ptr = NULL;            // Global Shared Memory Pointer
 Daemon_Conf Configuration = { 0 };      // Global Daemon Configuration
-static volatile sig_atomic_t shutdown_requested = 0;  // Signal-safe shutdown flag
+static volatile sig_atomic_t shutdown_requested = 0;       // Signal-safe shutdown flag
+static volatile sig_atomic_t config_reload_requested = 0;  // Signal-safe config reload flag
 
 void TMR_Get_temp(size_t timer_id, void *user_data);
 void Set_FanSpeed(uint8_t fan_speed);
@@ -95,12 +100,9 @@ void Clean_Exit(int status)
 void signal_handler(int sig){
     switch(sig){
         case SIGHUP:
-            // Note: log_message is not async-signal-safe, but SIGHUP is typically
-            // sent intentionally and we need the config reload functionality
-            log_message(LOG_INFO + LOG_BOLD,"Received SIGHUP Hang up");
-#ifndef DISABLE_LEGACY_IPC
-            reload_config_from_shm();
-#endif
+            // Set flag for safe config reload from main loop
+            // (log_message and reload_config_from_shm are not async-signal-safe)
+            config_reload_requested = 1;
             break;
         case SIGTERM:
         case SIGINT:
@@ -160,8 +162,7 @@ void Set_FanSpeed(uint8_t fan_speed)
         if (ioctl(file_i2c, I2C_FUNCS, &functions) < 0) {
             log_message(LOG_WARN, "Could not get the adapter functionality matrix: %s", strerror(errno));
         }
-        int addr = 0x1a;
-        if (ioctl(file_i2c, I2C_SLAVE, addr) < 0)
+        if (ioctl(file_i2c, I2C_SLAVE, ARGON_I2C_ADDR) < 0)
         {
             if (errno == EBUSY) log_message(LOG_WARN, "Device address is busy");
             else log_message(LOG_CRITICAL,"Failed to acquire bus access");
@@ -246,11 +247,17 @@ int Get_CPU_Temp(uint32_t *CPU_Temperature, uint8_t command)
         fptemp = fopen(filename, "r");
         if (fptemp)
         {
-            fscanf(fptemp, "%d", &CPU_Temp);
+            if (fscanf(fptemp, "%d", &CPU_Temp) != 1)
+            {
+                log_message(LOG_ERROR, "Failed to read CPU temperature from %s", filename);
+                return_val = -1;
+                CPU_Temp = 0;
+            }
             fclose(fptemp);
         } else {
             return_val = -1;
             log_message(LOG_CRITICAL, "Temperature can not be monitored!!");
+            CPU_Temp = 0;
         }
         CPU_Temp = CPU_Temp / 1000;
     } else {
@@ -393,6 +400,14 @@ int32_t monitor_device(uint32_t *Pulse_Time_ms)
     if (E_Flag == -1 || Configuration.extra.flags.PB_DISABLE) { // E_Flag -1 disable attempts to open /dev/gpiochip0
         while (!shutdown_requested) {
             usleep(100000);  // Sleep 100ms, check for shutdown
+            // Handle deferred SIGHUP config reload (async-signal-safe)
+            if (config_reload_requested) {
+                config_reload_requested = 0;
+                log_message(LOG_INFO + LOG_BOLD, "Received SIGHUP - reloading config");
+#ifndef DISABLE_LEGACY_IPC
+                reload_config_from_shm();
+#endif
+            }
         }
         *Pulse_Time_ms = 0;
         return 0;
@@ -443,12 +458,20 @@ int32_t monitor_device(uint32_t *Pulse_Time_ms)
 		
 		ret = read(req.fd, &event, sizeof(event));
 		if (ret == -1) {
-            // Check if interrupted by signal (e.g., SIGTERM/SIGINT)
+            // Check if interrupted by signal (e.g., SIGTERM/SIGINT/SIGHUP)
             if (errno == EINTR) {
                 if (shutdown_requested) {
                     ret = 0;
                     *Pulse_Time_ms = 0;
                     goto exit_close_error;
+                }
+                // Handle deferred SIGHUP config reload (async-signal-safe)
+                if (config_reload_requested) {
+                    config_reload_requested = 0;
+                    log_message(LOG_INFO + LOG_BOLD, "Received SIGHUP - reloading config");
+#ifndef DISABLE_LEGACY_IPC
+                    reload_config_from_shm();
+#endif
                 }
                 continue;  // Retry if not shutting down
             }
@@ -521,12 +544,22 @@ int daemonize(struct DTBO_Data *conf){
         for(i = getdtablesize(); i >= 0; --i)
             close(i);
         i = open("/dev/null",O_RDWR);
-        dup(i);
-        dup(i);
+        if (i >= 0)
+        {
+            (void)dup2(i, STDIN_FILENO);
+            (void)dup2(i, STDOUT_FILENO);
+            (void)dup2(i, STDERR_FILENO);
+            if (i > STDERR_FILENO)
+                close(i);
+        }
         log_message(LOG_INFO,"Now running as a daemon");
     }
     umask(0);
-    chdir(RUNNING_DIR);
+    if (chdir(RUNNING_DIR) != 0)
+    {
+        // Non-fatal: log warning but continue
+        log_message(LOG_WARN, "Failed to change to running directory %s: %s", RUNNING_DIR, strerror(errno));
+    }
     lfp = open(LOCK_FILE,O_RDWR|O_CREAT,0640);
     if(lfp < 0)
     {
@@ -539,7 +572,8 @@ int daemonize(struct DTBO_Data *conf){
         return 1;
     }
     snprintf(str, sizeof(str), "%d\n", getpid());
-    if (write(lfp,str,strlen(str)) > 0)
+    size_t len = strlen(str);
+    if (write(lfp, str, len) == (ssize_t)len)
     {
         log_message(LOG_INFO,"Lock file created");
     } else {
@@ -710,20 +744,18 @@ int main(int argc,char **argv)
         {
             log_message(LOG_DEBUG, "EXEC REBOOT");
             sync();
-            int ret = system("/sbin/reboot");
-            if (ret != 0)
+            if (reboot(RB_AUTOBOOT) == -1)
             {
-                log_message(LOG_ERROR, "Failed to execute reboot command (status %d)", ret);
+                log_message(LOG_ERROR, "Failed to execute reboot (errno %d: %s)", errno, strerror(errno));
             }
         }
         if (IS_LONG_PRESS(count))
         {
             log_message(LOG_DEBUG, "EXEC SHUTDOWN");
             sync();
-            int ret = system("/sbin/poweroff");
-            if (ret != 0)
+            if (reboot(RB_POWER_OFF) == -1)
             {
-                log_message(LOG_ERROR, "Failed to execute poweroff command (status %d)", ret);
+                log_message(LOG_ERROR, "Failed to execute poweroff (errno %d: %s)", errno, strerror(errno));
             }
         }
     } else {
@@ -731,6 +763,14 @@ int main(int argc,char **argv)
         while (!shutdown_requested)
         {
             sleep(1); // Main loop to sleep
+            // Handle deferred SIGHUP config reload (async-signal-safe)
+            if (config_reload_requested) {
+                config_reload_requested = 0;
+                log_message(LOG_INFO + LOG_BOLD, "Received SIGHUP - reloading config");
+#ifndef DISABLE_LEGACY_IPC
+                reload_config_from_shm();
+#endif
+            }
         }
         log_message(LOG_INFO + LOG_BOLD, "Shutdown signal received");
     }

@@ -348,18 +348,19 @@ int Open_ArgonMem(ArgonMem* ar_ptr)
 /**
  * Close Argon one memory interface
  *
- * \param ar_ptr Pointer to ArgonMem Struct
+ * \param ar_ptr_ref Pointer to pointer to ArgonMem Struct (sets caller's pointer to NULL)
  */
-void Close_ArgonMem(ArgonMem* ar_ptr)
+void Close_ArgonMem(ArgonMem** ar_ptr_ref)
 {
-    if (ar_ptr == NULL) return;
+    if (ar_ptr_ref == NULL || *ar_ptr_ref == NULL) return;
+    ArgonMem* ar_ptr = *ar_ptr_ref;
     munmap(ar_ptr->memory, SHM_SIZE);
     close(ar_ptr->shm_fd);
     ar_ptr->shm_fd = 0;
     ar_ptr->memory = NULL;
     ar_ptr->daemon_pid = 0;
-    free (ar_ptr);
-    ar_ptr = NULL;
+    free(ar_ptr);
+    *ar_ptr_ref = NULL;
 }
 
 /**

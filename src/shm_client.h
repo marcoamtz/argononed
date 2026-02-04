@@ -60,7 +60,7 @@ typedef enum {
 
 ArgonMem* New_ArgonMem();
 int Open_ArgonMem(ArgonMem* ar_ptr);
-void Close_ArgonMem(ArgonMem* ar_ptr);
+void Close_ArgonMem(ArgonMem** ar_ptr_ref);
 
 int Get_Config(ArgonMem* ar_ptr, struct DTBO_Config*);
 int Get_Statistics(ArgonMem* ar_ptr, struct SHM_DAEMON_STATS*);
