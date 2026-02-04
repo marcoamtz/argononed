@@ -30,10 +30,66 @@ SOFTWARE.
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #define MAX_LEN 256
+
+/**
+ * \brief Safely convert string to long with range validation
+ *
+ * \param str String to convert
+ * \param result Pointer to store the result
+ * \param min_val Minimum allowed value
+ * \param max_val Maximum allowed value
+ * \return 0 on success, -1 on error
+ */
+static int safe_strtol(const char *str, long *result, long min_val, long max_val)
+{
+    if (str == NULL || result == NULL) return -1;
+
+    char *endptr;
+    errno = 0;
+    long val = strtol(str, &endptr, 10);
+
+    // Check for conversion errors
+    if (errno == ERANGE || val < min_val || val > max_val) {
+        return -1;
+    }
+    // Check if any characters were converted
+    if (endptr == str) {
+        return -1;
+    }
+    // Skip trailing whitespace
+    while (isspace((unsigned char)*endptr)) endptr++;
+    // Check for trailing non-whitespace characters (partial conversion)
+    if (*endptr != '\0') {
+        return -1;
+    }
+
+    *result = val;
+    return 0;
+}
+
+/**
+ * \brief Safely convert string to uint8_t with validation
+ *
+ * \param str String to convert
+ * \param result Pointer to store the result
+ * \param max_val Maximum allowed value (0-255)
+ * \return 0 on success, -1 on error
+ */
+static int safe_strtou8(const char *str, uint8_t *result, uint8_t max_val)
+{
+    long val;
+    if (safe_strtol(str, &val, 0, max_val) != 0) {
+        return -1;
+    }
+    *result = (uint8_t)val;
+    return 0;
+}
 
 /**
  * \brief Initialize the configuration
@@ -308,8 +364,12 @@ static int get_vals(char text[], unsigned char* val, int max_elements, int offse
     while (token)
     {
         count++;
-        if (0 && offset >= 0) printf("ERROR:  Bad value %s line %d\n", token, offset);
-        val[count - 1] = (unsigned char)atoi(token);
+        long parsed_val;
+        if (safe_strtol(token, &parsed_val, 0, 255) != 0) {
+            log_message(LOG_WARN, "Invalid value '%s' in line %d", token, offset);
+            parsed_val = 0;  // Use default on error
+        }
+        val[count - 1] = (unsigned char)parsed_val;
         token = strtok_r(NULL, ",", &saveptr);
         if (count >= max_elements) return count;
     }
@@ -370,37 +430,54 @@ int Read_Configuration_File(const char* filename, struct DTBO_Data* conf)
                 get_vals(value, (uint8_t *)&conf_in.fanstages, 3, line);
                 break;
             case CFG_FAN0:
-                conf_in.fanstages[0] = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf_in.fanstages[0], FAN_SPEED_MAX) != 0)
+                    log_message(LOG_WARN, "Invalid fan0 value '%s' in line %d", value, line);
                 break;
             case CFG_FAN1:
-                conf_in.fanstages[1] = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf_in.fanstages[1], FAN_SPEED_MAX) != 0)
+                    log_message(LOG_WARN, "Invalid fan1 value '%s' in line %d", value, line);
                 break;
             case CFG_FAN2:
-                conf_in.fanstages[2] = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf_in.fanstages[2], FAN_SPEED_MAX) != 0)
+                    log_message(LOG_WARN, "Invalid fan2 value '%s' in line %d", value, line);
                 break;
             case CFG_TEMPS:
                 get_vals(value, (uint8_t *)&conf_in.thresholds, 3, line);
                 break;
             case CFG_TEMP0:
-                conf_in.thresholds[0] = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf_in.thresholds[0], TEMPERATURE_MAX) != 0)
+                    log_message(LOG_WARN, "Invalid temp0 value '%s' in line %d", value, line);
                 break;
             case CFG_TEMP1:
-                conf_in.thresholds[1] = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf_in.thresholds[1], TEMPERATURE_MAX) != 0)
+                    log_message(LOG_WARN, "Invalid temp1 value '%s' in line %d", value, line);
                 break;
             case CFG_TEMP2:
-                conf_in.thresholds[2] = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf_in.thresholds[2], TEMPERATURE_MAX) != 0)
+                    log_message(LOG_WARN, "Invalid temp2 value '%s' in line %d", value, line);
                 break;
             case CFG_HYSTERESIS:
-                conf_in.hysteresis = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf_in.hysteresis, HYSTERESIS_MAX) != 0)
+                    log_message(LOG_WARN, "Invalid hysteresis value '%s' in line %d", value, line);
                 break;
             case CFG_FLAGS:
-                conf->extra.flags.value |= (uint8_t)strtol(value, NULL, 16);
+            {
+                char *endptr;
+                errno = 0;
+                long flags_val = strtol(value, &endptr, 16);
+                if (errno == 0 && endptr != value && flags_val >= 0 && flags_val <= 255)
+                    conf->extra.flags.value |= (uint8_t)flags_val;
+                else
+                    log_message(LOG_WARN, "Invalid flags value '%s' in line %d", value, line);
                 break;
+            }
             case CFG_BUS:
-                conf->extra.bus = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf->extra.bus, 255) != 0)
+                    log_message(LOG_WARN, "Invalid i2cbus value '%s' in line %d", value, line);
                 break;
             case CFG_LOGLEVEL:
-                conf->Log_Level = (uint8_t)atoi(value);
+                if (safe_strtou8(value, &conf->Log_Level, 6) != 0)
+                    log_message(LOG_WARN, "Invalid loglevel value '%s' in line %d", value, line);
                 break;
             default: continue;
         }
@@ -452,35 +529,62 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
       config->extra.flags.FOREGROUND_MODE = 1;
       break;
     case 'l':
-      config->Log_Level = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->Log_Level, 6) != 0) {
+        fprintf(stderr, "ERROR: Invalid log level '%s'\n", arg);
+        argp_usage(state);
+      }
       printf("Loglevel set to %s\n", LOG_LEVEL_STR[config->Log_Level]);
       break;
     case 1:
-      config->configuration.fanstages[0] = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->configuration.fanstages[0], FAN_SPEED_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid fan0 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 2:
-      config->configuration.fanstages[1] = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->configuration.fanstages[1], FAN_SPEED_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid fan1 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 3:
-      config->configuration.fanstages[2] = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->configuration.fanstages[2], FAN_SPEED_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid fan2 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 4:
-      config->configuration.thresholds[0] = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->configuration.thresholds[0], TEMPERATURE_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid temp0 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 5:
-      config->configuration.thresholds[1] = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->configuration.thresholds[1], TEMPERATURE_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid temp1 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 6:
-      config->configuration.thresholds[2] = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->configuration.thresholds[2], TEMPERATURE_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid temp2 value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 7:
-      config->configuration.hysteresis = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->configuration.hysteresis, HYSTERESIS_MAX) != 0) {
+        fprintf(stderr, "ERROR: Invalid hysteresis value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 8:
       config->filename = arg;
       break;
     case 9:
-      config->extra.flags.value = (uint8_t)atoi(arg);
+      if (safe_strtou8(arg, &config->extra.flags.value, 255) != 0) {
+        fprintf(stderr, "ERROR: Invalid flags value '%s'\n", arg);
+        argp_usage(state);
+      }
       break;
     case 10:
     {

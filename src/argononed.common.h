@@ -177,7 +177,14 @@ struct SHM_Data {               //  DAEMON  |   CLIENT
     struct SHM_DAEMON_STATS stat;
     //struct SHM_REQ_MSG msg; // Special Message for CLI client only
     struct SHM_REQ_MSG msg_app[3]; // Normal Application Messages **Not Yet Enabled**
-}; // current size - 14 bytes
+};
+
+// Static assertions to verify structure sizes remain consistent across platforms
+// This ensures shared memory layout is predictable for IPC communication
+_Static_assert(sizeof(struct DTBO_Config) == 7, "DTBO_Config size mismatch - shared memory layout may differ");
+_Static_assert(sizeof(struct SHM_DAEMON_STATS) == 6, "SHM_DAEMON_STATS size mismatch - shared memory layout may differ");
+_Static_assert(sizeof(struct SHM_REQ_MSG) == 12, "SHM_REQ_MSG size mismatch - shared memory layout may differ");
+_Static_assert(sizeof(struct SHM_Data) == 56, "SHM_Data size mismatch - shared memory layout may differ");
 
 /**
  * \brief Write formatted output to Log file.

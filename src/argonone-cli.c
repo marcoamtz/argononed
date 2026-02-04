@@ -430,7 +430,12 @@ int main (int argc, char** argv)
           exit(1);
         }
     } else {
-      fscanf (file, "%d", &d_pid);
+      if (fscanf (file, "%d", &d_pid) != 1)
+      {
+          if (!arguments.silent) fprintf(stderr, "ERROR:  Cannot read PID from lock file\n");
+          fclose(file);
+          exit(1);
+      }
       fclose (file);
       if (kill(d_pid, 0) != 0)
       {

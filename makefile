@@ -13,6 +13,9 @@ DTC          = dtc -@ -I dts -O dtb -o
 BASH         = bash
 INSTALL      = install
 CFLAGS       = -Wall -s -O3
+ifndef DISABLE_WERROR
+CFLAGS      += -Werror
+endif
 CFLAGS_DEBUG = -Wall -g -O0 -DDEBUG
 LFLAGS       = -lpthread -lrt
 LFLAGS3      = -lrt
@@ -173,6 +176,7 @@ help:
 	@echo "  USE_SYSFS_TEMP=<num>            Use sysfs for temperature"
 	@echo "  RUN_IN_FOREGROUND=1             Run in foreground mode"
 	@echo "  ENABLE_COMPILE_WARNINGS=1       Enable extra warnings"
+	@echo "  DISABLE_WERROR=1                Disable -Werror (warnings don't fail build)"
 	@echo ""
 
 ifdef MAKE_OVERRIDES

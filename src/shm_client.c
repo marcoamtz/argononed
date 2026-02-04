@@ -314,7 +314,11 @@ int Open_ArgonMem(ArgonMem* ar_ptr)
          return errno;
         }
     } else {
-      fscanf (file, "%d", &ar_ptr->daemon_pid);
+      if (fscanf (file, "%d", &ar_ptr->daemon_pid) != 1)
+      {
+          fclose(file);
+          return EINVAL;
+      }
       fclose (file);
       if (kill(ar_ptr->daemon_pid, 0) != 0)
       {

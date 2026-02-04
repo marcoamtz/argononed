@@ -35,6 +35,7 @@ SOFTWARE.
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #include <string.h>
+#include <pthread.h>
 #include "argononed.common.h"
 #include "identapi.h"
 #include "event_timer.h"
@@ -138,9 +139,12 @@ void Alarm_handler(int sig __attribute__((unused)))
  */
 void Set_FanSpeed(uint8_t fan_speed)
 {
+    static pthread_mutex_t fanspeed_mutex = PTHREAD_MUTEX_INITIALIZER;
     static int file_i2c = 0;        // i2c file descripter
     static uint8_t speed = 1;       // Current fan speed
     unsigned long functions = 0;
+
+    pthread_mutex_lock(&fanspeed_mutex);
 	if (file_i2c == 0)
     {
         char filename[20];
@@ -150,6 +154,7 @@ void Set_FanSpeed(uint8_t fan_speed)
         {
             log_message(LOG_CRITICAL,"Failed to open the i2c bus");
             file_i2c = 0;  // Reset to zero this will allow the daemon to retry the connection
+            pthread_mutex_unlock(&fanspeed_mutex);
             return;
         }
         if (ioctl(file_i2c, I2C_FUNCS, &functions) < 0) {
@@ -162,6 +167,7 @@ void Set_FanSpeed(uint8_t fan_speed)
             else log_message(LOG_CRITICAL,"Failed to acquire bus access");
             close(file_i2c);
             file_i2c = 0; // Reset so the i2c can reconnect if needed
+            pthread_mutex_unlock(&fanspeed_mutex);
             return;
         }
         if ((functions & I2C_FUNC_SMBUS_QUICK))
@@ -177,6 +183,7 @@ void Set_FanSpeed(uint8_t fan_speed)
                 log_message(LOG_WARN, "Unable to detect Argon fan controller");
                 close(file_i2c);
                 file_i2c = 0; // Reset so the i2c can reconnect on a different bus if requested
+                pthread_mutex_unlock(&fanspeed_mutex);
                 return;
             }
             else
@@ -199,6 +206,7 @@ void Set_FanSpeed(uint8_t fan_speed)
         file_i2c = 0; // Reset so the i2c can reconnect if needed
         log_message(LOG_INFO,"i2c closed");
     }
+    pthread_mutex_unlock(&fanspeed_mutex);
 }
 /**
  * \brief Read the CPU temperature
@@ -600,9 +608,23 @@ int main(int argc,char **argv)
         fprintf(stderr, "WARNING:  argononed Lock file found\n");
         FILE* file = fopen (LOCK_FILE, "r");
         int d_pid = 0;
-        fscanf (file, "%d", &d_pid);
-        fclose (file);
-        if (kill(d_pid, 0) == 0)
+        if (file == NULL)
+        {
+            fprintf(stderr, "ERROR:  Cannot open lock file: %s\n", strerror(errno));
+            exit(1);
+        }
+        if (fscanf (file, "%d", &d_pid) != 1)
+        {
+            fprintf(stderr, "ERROR:  Cannot read PID from lock file\n");
+            fclose(file);
+            unlink(LOCK_FILE);
+            // Continue startup - lock file was corrupted
+        }
+        else
+        {
+            fclose (file);
+        }
+        if (d_pid > 0 && kill(d_pid, 0) == 0)
         {
           fprintf(stderr, "ERROR:  argononed ALREADY RUNNING\n");
           exit (1);
@@ -688,13 +710,21 @@ int main(int argc,char **argv)
         {
             log_message(LOG_DEBUG, "EXEC REBOOT");
             sync();
-            system("/sbin/reboot");
+            int ret = system("/sbin/reboot");
+            if (ret != 0)
+            {
+                log_message(LOG_ERROR, "Failed to execute reboot command (status %d)", ret);
+            }
         }
         if (IS_LONG_PRESS(count))
         {
             log_message(LOG_DEBUG, "EXEC SHUTDOWN");
             sync();
-            system("/sbin/poweroff");
+            int ret = system("/sbin/poweroff");
+            if (ret != 0)
+            {
+                log_message(LOG_ERROR, "Failed to execute poweroff command (status %d)", ret);
+            }
         }
     } else {
         log_message(LOG_INFO + LOG_BOLD,"Daemon Ready");
